@@ -1,0 +1,12 @@
+{
+  "n_samples": 4000,
+  "n_features": 512,
+  "n_folds": 5,
+  "random_mcc": 0.36725,
+  "chronological_mcc": 0.30346,
+  "random_acc": 0.66825,
+  "chronological_acc": 0.65763,
+  "mcc_inflation": 1.21,
+  "acc_inflation": 1.016,
+  "leaking": true
+}

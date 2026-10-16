@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+.idea/
+.vscode/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+_research/
+_scratch/
