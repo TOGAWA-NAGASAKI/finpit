@@ -1,0 +1,99 @@
+{
+  "true_ic": 0.03559,
+  "extractor": "llm:deepseek-v4.1-flash:anon",
+  "n_panel_rows": 240,
+  "audit": {
+    "store": "synthetic",
+    "total_accesses": 240,
+    "blocked_accesses": 0,
+    "distinct_blocked_keys": 0,
+    "clean": true,
+    "violations": []
+  },
+  "results": [
+    {
+      "mode": "clean",
+      "note": "严格时间点纪律，无泄漏（对照组）",
+      "pit_blocks": 0,
+      "inflation_ic": 0.0,
+      "ic": 0.04683,
+      "rank_ic": 0.08986,
+      "hit_rate": 0.57485,
+      "quantile_spread": -0.000566,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    },
+    {
+      "mode": "pit_violation",
+      "note": "差一天的未来函数：用**目标日当天**的新闻预测当天收益。PIT 门控对每一行都会拦截",
+      "pit_blocks": 240,
+      "inflation_ic": 2.415,
+      "ic": 0.15991,
+      "rank_ic": 0.17145,
+      "hit_rate": 0.5503,
+      "quantile_spread": 0.008004,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    },
+    {
+      "mode": "outcome_prompt",
+      "note": "提示词混入事后行情回顾（新闻 API 常见：文章被事后更新）",
+      "pit_blocks": 240,
+      "inflation_ic": 5.7222,
+      "ic": 0.31477,
+      "rank_ic": 0.37761,
+      "hit_rate": 0.81897,
+      "quantile_spread": 0.014808,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    },
+    {
+      "mode": "test_set_select",
+      "note": "在评测集上挑最优 scale=2.0（共试 8 组）；报出的是选择后的最大值，即乐观偏差",
+      "pit_blocks": 0,
+      "inflation_ic": 0.2962,
+      "ic": 0.0607,
+      "rank_ic": 0.12407,
+      "hit_rate": 0.56216,
+      "quantile_spread": 0.003105,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    },
+    {
+      "mode": "cherry_pick",
+      "note": "按结果筛选样本，剔除表现最差的 20% 标的（幸存者偏差）；保留 192 行",
+      "pit_blocks": 0,
+      "inflation_ic": -0.9382,
+      "ic": 0.0029,
+      "rank_ic": 0.04444,
+      "hit_rate": 0.54478,
+      "quantile_spread": -0.000924,
+      "mean_return": 0.003027,
+      "n_obs": 192
+    },
+    {
+      "mode": "oracle_latent",
+      "note": "绕过文本抽取，直读潜在真值：信号族上限",
+      "pit_blocks": 0,
+      "inflation_ic": 0.9022,
+      "ic": 0.08907,
+      "rank_ic": 0.11066,
+      "hit_rate": 0.54,
+      "quantile_spread": 0.002881,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    },
+    {
+      "mode": "future_return",
+      "note": "把目标收益本身当特征：应得 IC≈1，用于验证审计管线可检出泄漏",
+      "pit_blocks": 0,
+      "inflation_ic": 20.3559,
+      "ic": 1.0,
+      "rank_ic": 1.0,
+      "hit_rate": 1.0,
+      "quantile_spread": 0.042883,
+      "mean_return": 0.000921,
+      "n_obs": 240
+    }
+  ]
+}

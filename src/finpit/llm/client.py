@@ -50,6 +50,17 @@ class Completion:
     total_tokens: int = 0
     cached: bool = False
     latency_s: float = 0.0
+    finish_reason: str = ""
+    """``stop`` 为正常结束；``length`` 表示被 ``max_tokens`` 截断。
+
+    推理模型（如 deepseek-v4-pro）会把大量 token 花在思维链上，
+    ``length`` 截断时 ``content`` 往往为空 —— 这时**不能**把
+    ``reasoning_content`` 当成答案，否则结构化输出解析会静默失败。
+    """
+
+    @property
+    def truncated(self) -> bool:
+        return self.finish_reason == "length"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -60,6 +71,7 @@ class Completion:
             "total_tokens": self.total_tokens,
             "cached": self.cached,
             "latency_s": round(self.latency_s, 3),
+            "finish_reason": self.finish_reason,
         }
 
 
@@ -79,10 +91,29 @@ class LLMClient:
         self.use_cache = use_cache
         self._cache_dir = Path(settings.cache_dir) / "llm"
         self._cache_dir.mkdir(parents=True, exist_ok=True)
+        self._last_request_at: float = 0.0
         # 统计
         self.calls_made = 0
         self.calls_cached = 0
         self.tokens_used = 0
+
+    # ---------------------------------------------------------------- 节流
+    def _throttle(self) -> None:
+        """保证两次**真实**请求之间有最小间隔。
+
+        OpenCode Go 会监控流量是否"降级他人体验"。实测教训：在 2 分钟内以
+        全新随机 session 连发 26 个请求，会被直接封禁凭据。节流 + 稳定 session
+        是避免触发该机制的两个必要条件。
+        """
+        interval = self.settings.request_interval_s
+        if interval <= 0:
+            return
+        elapsed = time.monotonic() - self._last_request_at
+        if self._last_request_at > 0 and elapsed < interval:
+            time.sleep(interval - elapsed)
+
+    def _mark_request(self) -> None:
+        self._last_request_at = time.monotonic()
 
     # ---------------------------------------------------------------- headers
     def _headers(self) -> dict[str, str]:
@@ -122,6 +153,9 @@ class LLMClient:
             completion_tokens=data.get("completion_tokens", 0),
             total_tokens=data.get("total_tokens", 0),
             cached=True,
+            # 必须一并恢复 finish_reason：否则被截断的缓存项在回放时会丢掉
+            # "length" 标记，把"预算不足"误报成"解析失败"，诊断失真。
+            finish_reason=data.get("finish_reason", ""),
         )
 
     def _cache_write(self, key: str, completion: Completion) -> None:
@@ -185,11 +219,14 @@ class LLMClient:
 
         last_error: LLMError | None = None
         for attempt in range(self.settings.max_retries):
+            self._throttle()
             started = time.perf_counter()
             try:
                 with httpx.Client(timeout=self.settings.request_timeout) as client:
                     resp = client.post(url, headers=self._headers(), json=payload)
+                    self._mark_request()
             except httpx.HTTPError as exc:
+                self._mark_request()
                 last_error = LLMError(f"网络错误: {exc}", retryable=True)
             else:
                 elapsed = time.perf_counter() - started
@@ -223,9 +260,20 @@ class LLMClient:
         choices = data.get("choices") or []
         if not choices:
             raise LLMError(f"响应缺少 choices: {str(data)[:200]}")
-        message = choices[0].get("message") or {}
-        # 部分推理模型只填 reasoning_content，content 为空
-        text = (message.get("content") or message.get("reasoning_content") or "").strip()
+        choice = choices[0]
+        message = choice.get("message") or {}
+        finish_reason = choice.get("finish_reason") or ""
+        content = (message.get("content") or "").strip()
+        reasoning = (message.get("reasoning_content") or "").strip()
+        # 优先 content；仅当 content 为空**且未被截断**时，才退回思维链
+        # （部分推理模型把最终答案写在 reasoning_content 里）。
+        # 被截断时 reasoning_content 只是半截思考过程，当成答案会污染下游。
+        if content:
+            text = content
+        elif reasoning and finish_reason != "length":
+            text = reasoning
+        else:
+            text = ""
         usage = data.get("usage") or {}
         return Completion(
             text=text,
@@ -234,6 +282,7 @@ class LLMClient:
             completion_tokens=usage.get("completion_tokens", 0),
             total_tokens=usage.get("total_tokens", 0),
             latency_s=elapsed,
+            finish_reason=finish_reason,
         )
 
     # ------------------------------------------------------------------ stats

@@ -50,8 +50,21 @@ class LLMExtractor:
 
     client: LLMClient
     anonymize: bool = True
-    batch_size: int = 8
-    max_tokens: int = 2048
+    batch_size: int = 6
+    model: str | None = None
+    """覆盖 ``client`` 的默认模型。
+
+    不设则用 ``Settings.model``。评分类任务通常用 flash 档更划算：
+    推理模型会把大量 token 与时间花在思维链上（实测 12 条一批需 40s，
+    而 flash 档在同一任务上分数几乎一致）。
+    """
+    max_tokens: int = 8192
+    """单次响应的 token 上限。
+
+    **必须给足。** 推理模型会把大量 token 花在思维链上，预算不足时
+    ``finish_reason == "length"`` 且 ``content`` 为空 —— 结构化输出解析必然失败。
+    实测：``deepseek-v4-pro`` 处理 12 条新闻时 2048 不够，全部解析失败。
+    """
     system: str = DEFAULT_SYSTEM
     template: str = DEFAULT_TEMPLATE
     name: str = ""
@@ -61,7 +74,8 @@ class LLMExtractor:
     def __post_init__(self) -> None:
         if not self.name:
             mode = "anon" if self.anonymize else "raw"
-            self.name = f"llm:{self.client.settings.model}:{mode}"
+            used = self.model or self.client.settings.model
+            self.name = f"llm:{used}:{mode}"
 
     # ------------------------------------------------------------- 公开接口
     def score_batch(self, items: list[NewsItem]) -> list[Signal]:
@@ -88,6 +102,7 @@ class LLMExtractor:
             completion = self.client.complete(
                 prompt,
                 system=self.system,
+                model=self.model,
                 max_tokens=self.max_tokens,
                 temperature=0.0,
             )
@@ -99,7 +114,15 @@ class LLMExtractor:
         parsed = self.parse_scores(completion.text, len(chunk))
         if parsed is None:
             self.parse_failures += len(chunk)
-            log.warning("JSON 解析失败，原文前 200 字：%s", completion.text[:200])
+            if completion.truncated:
+                log.warning(
+                    "本批 %d 条被 max_tokens=%d 截断（思维链耗尽预算），"
+                    "解析失败。请调大 max_tokens 或调小 batch_size。",
+                    len(chunk),
+                    self.max_tokens,
+                )
+            else:
+                log.warning("JSON 解析失败，原文前 200 字：%s", completion.text[:200])
             return [self._fallback(item, "解析失败") for item in chunk]
 
         out: list[Signal] = []

@@ -43,6 +43,13 @@ class Settings:
     cache_dir: Path = field(default_factory=lambda: Path.home() / ".cache" / "finpit")
     request_timeout: float = 90.0
     max_retries: int = 4
+    request_interval_s: float = 1.5
+    """两次真实请求之间的最小间隔（秒）。
+
+    OpenCode Go 的服务条款明确写着 "Traffic is monitored for abuse that
+    degrades the experience for other users"。高频调用会被判为滥用并**封禁凭据**，
+    因此节流不是可选优化，而是正确性要求。
+    """
 
     @classmethod
     def load(cls, env_file: str | Path | None = DEFAULT_ENV_FILE) -> Settings:
@@ -62,6 +69,12 @@ class Settings:
             github_token=get("GITHUB_TOKEN"),
             github_owner=get("GITHUB_OWNER"),
         )
+        interval = get("LLM_REQUEST_INTERVAL_S")
+        if interval:
+            try:
+                settings.request_interval_s = float(interval)
+            except ValueError:
+                pass
         cache_override = get("FINPIT_CACHE_DIR")
         if cache_override:
             settings.cache_dir = Path(cache_override)

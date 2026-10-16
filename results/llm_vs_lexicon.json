@@ -1,0 +1,70 @@
+{
+  "oracle_latent": {
+    "ic": 0.06951,
+    "rank_ic": 0.08883,
+    "hit_rate": 0.53956,
+    "quantile_spread": 0.002262,
+    "mean_return": 0.000193,
+    "n_obs": 1200
+  },
+  "lexicon": {
+    "ic": 0.0456,
+    "rank_ic": 0.05337,
+    "hit_rate": 0.53353,
+    "quantile_spread": 0.000136,
+    "mean_return": 0.000193,
+    "n_obs": 1200
+  },
+  "llm_anon": {
+    "ic": 0.0393,
+    "rank_ic": 0.05284,
+    "hit_rate": 0.53491,
+    "quantile_spread": 0.001236,
+    "mean_return": 0.000193,
+    "n_obs": 1200
+  },
+  "_meta": {
+    "n_rows": 1200,
+    "n_dates": 100,
+    "n_assets": 12,
+    "true_ic_full_sample": 0.03134,
+    "true_ic_panel": 0.06951,
+    "parse_failures": 24,
+    "items_scored": 1200,
+    "llm_stats": {
+      "calls_made": 0,
+      "calls_cached": 100,
+      "tokens_used": 0
+    }
+  },
+  "_bootstrap": {
+    "n_boot": 2000,
+    "n_date_groups": 100,
+    "se": {
+      "oracle_latent": 0.0267,
+      "lexicon": 0.02835,
+      "llm_anon": 0.02781,
+      "lexicon_minus_llm": 0.00955
+    },
+    "ci95": {
+      "oracle_latent": [
+        0.01632,
+        0.12071
+      ],
+      "lexicon": [
+        -0.0087,
+        0.09934
+      ],
+      "llm_anon": [
+        -0.01585,
+        0.09187
+      ],
+      "lexicon_minus_llm": [
+        -0.01235,
+        0.02502
+      ]
+    },
+    "p_two_sided_lexicon_minus_llm": 0.541,
+    "verdict": "差异不显著（区间跨 0）"
+  }
+}
