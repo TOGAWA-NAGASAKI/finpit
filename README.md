@@ -228,6 +228,8 @@ src/finpit/
 
 本仓库每个模块都对应文献中被独立验证过必要性的组件。**全部 63 个引用 ID 均经 arXiv API 逐一独立回验，0 虚构。** 详见 [`docs/papers.md`](docs/papers.md)。
 
+**完整技术报告**：[`docs/report.md`](docs/report.md)（Markdown）· [`docs/finpit-技术报告.docx`](docs/finpit-技术报告.docx)（Word）——涵盖调研方法、系统设计、全部实测数据、统计检验、工程实录与局限。
+
 ---
 
 ## 路线图

@@ -1,0 +1,784 @@
+/**
+ * 由 docs/report.md 的内容生成 Word 版技术报告。
+ * 运行：node scripts/build_report_docx.js
+ */
+const fs = require("fs");
+const path = require("path");
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+  AlignmentType, LevelFormat, HeadingLevel, BorderStyle, WidthType,
+  ShadingType, PageNumber, Header, Footer, ExternalHyperlink,
+} = require("docx");
+
+const OUT = path.join(__dirname, "..", "docs", "finpit-技术报告.docx");
+const CONTENT_WIDTH = 9360; // US Letter 12240 - 2*1440 边距
+
+// ---------------------------------------------------------------- 基础构件
+const H1 = (t, o = {}) =>
+  new Paragraph({ heading: HeadingLevel.HEADING_1, pageBreakBefore: o.newPage, children: [new TextRun(t)] });
+const H2 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(t)] });
+const H3 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_3, children: [new TextRun(t)] });
+
+/** 正文段落。segments 为 [文本, 样式] 数组，样式可含 bold/italics/mono/color */
+function P(segments, o = {}) {
+  const segs = Array.isArray(segments) ? segments : [[segments, {}]];
+  return new Paragraph({
+    spacing: { after: 140, line: 300 },
+    alignment: o.align,
+    children: segs.map(([text, st = {}]) =>
+      new TextRun({
+        text,
+        bold: st.bold,
+        italics: st.italics,
+        font: st.mono ? "Consolas" : undefined,
+        size: st.mono ? 19 : undefined,
+        color: st.color,
+      })
+    ),
+  });
+}
+
+const BULLET = (segments) => {
+  const segs = Array.isArray(segments) ? segments : [[segments, {}]];
+  return new Paragraph({
+    numbering: { reference: "bullets", level: 0 },
+    spacing: { after: 90, line: 300 },
+    children: segs.map(([text, st = {}]) =>
+      new TextRun({ text, bold: st.bold, italics: st.italics, font: st.mono ? "Consolas" : undefined })
+    ),
+  });
+};
+
+const NUM = (segments) => {
+  const segs = Array.isArray(segments) ? segments : [[segments, {}]];
+  return new Paragraph({
+    numbering: { reference: "numbers", level: 0 },
+    spacing: { after: 90, line: 300 },
+    children: segs.map(([text, st = {}]) =>
+      new TextRun({ text, bold: st.bold, italics: st.italics, font: st.mono ? "Consolas" : undefined })
+    ),
+  });
+};
+
+/** 引用/结论块：左侧竖线 + 浅底 */
+function QUOTE(segments) {
+  const segs = Array.isArray(segments) ? segments : [[segments, {}]];
+  return new Paragraph({
+    spacing: { before: 120, after: 160, line: 300 },
+    indent: { left: 360 },
+    border: { left: { style: BorderStyle.SINGLE, size: 18, color: "2E75B6", space: 12 } },
+    children: segs.map(([text, st = {}]) =>
+      new TextRun({ text, bold: st.bold, italics: st.italics, color: st.color })
+    ),
+  });
+}
+
+const CODE = (lines) =>
+  lines.map(
+    (l, i) =>
+      new Paragraph({
+        spacing: { after: i === lines.length - 1 ? 160 : 0, line: 260 },
+        indent: { left: 240 },
+        shading: { fill: "F4F6F8", type: ShadingType.CLEAR },
+        children: [new TextRun({ text: l || " ", font: "Consolas", size: 18 })],
+      })
+  );
+
+const border = { style: BorderStyle.SINGLE, size: 1, color: "BFBFBF" };
+const borders = { top: border, bottom: border, left: border, right: border };
+const CELL_MARGIN = { top: 60, bottom: 60, left: 100, right: 100 };
+
+/** 表格。rows[0] 为表头。widths 为各列 DXA 宽度，须合计等于表宽。 */
+function TABLE(headers, rows, widths, opts = {}) {
+  const total = widths.reduce((a, b) => a + b, 0);
+  const headRow = new TableRow({
+    tableHeader: true,
+    children: headers.map((h, i) =>
+      new TableCell({
+        borders,
+        width: { size: widths[i], type: WidthType.DXA },
+        margins: CELL_MARGIN,
+        shading: { fill: "DCE9F5", type: ShadingType.CLEAR },
+        children: [
+          new Paragraph({
+            spacing: { after: 0 },
+            alignment: i === 0 ? AlignmentType.LEFT : AlignmentType.CENTER,
+            children: [new TextRun({ text: h, bold: true, size: 19 })],
+          }),
+        ],
+      })
+    ),
+  });
+  const bodyRows = rows.map(
+    (r, ri) =>
+      new TableRow({
+        children: r.map((c, i) => {
+          const raw = String(c);
+          const isBold = raw.startsWith("**") && raw.endsWith("**");
+          const text = raw.replace(/\*\*/g, "");
+          return new TableCell({
+            borders,
+            width: { size: widths[i], type: WidthType.DXA },
+            margins: CELL_MARGIN,
+            shading: ri % 2 === 1 ? { fill: "FAFBFC", type: ShadingType.CLEAR } : undefined,
+            children: [
+              new Paragraph({
+                spacing: { after: 0 },
+                alignment: i === 0 ? AlignmentType.LEFT : AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text,
+                    bold: isBold,
+                    size: 19,
+                    font: /^[+\-\d.\s×%|—]+$/.test(text) ? "Consolas" : undefined,
+                  }),
+                ],
+              }),
+            ],
+          });
+        }),
+      })
+  );
+  return new Table({
+    width: { size: total, type: WidthType.DXA },
+    columnWidths: widths,
+    rows: [headRow, ...bodyRows],
+  });
+}
+
+const SPACER = () => new Paragraph({ spacing: { after: 80 }, children: [] });
+
+// ==================================================================== 内容
+const children = [];
+
+// --- 封面 ---
+children.push(
+  new Paragraph({
+    spacing: { before: 1200, after: 120 },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: "金融 + 大模型", bold: true, size: 52 })],
+  }),
+  new Paragraph({
+    spacing: { after: 400 },
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: "从论文调研到可复现工程", size: 34, color: "404040" })],
+  }),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 80 },
+    children: [new TextRun({ text: "技术报告", size: 24, color: "808080" })],
+  }),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 600, after: 60 },
+    children: [new TextRun({ text: "HaoWen Zhao", size: 24 })],
+  }),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 60 },
+    children: [new TextRun({ text: "2026-10-16", size: 22, color: "606060" })],
+  }),
+  new Paragraph({
+    alignment: AlignmentType.CENTER,
+    spacing: { after: 600 },
+    children: [
+      new ExternalHyperlink({
+        children: [new TextRun({ text: "github.com/TOGAWA-NAGASAKI/finpit", style: "Hyperlink", size: 22 })],
+        link: "https://github.com/TOGAWA-NAGASAKI/finpit",
+      }),
+    ],
+  })
+);
+
+children.push(
+  TABLE(
+    ["项目", "值"],
+    [
+      ["代码仓库", "https://github.com/TOGAWA-NAGASAKI/finpit"],
+      ["提交", "04dc0ff（框架） → a7f2701（LLM 实测）"],
+      ["规模", "源码 19 文件 / 2,271 行；测试 6 文件 / 616 行 / **98 个测试全通过**"],
+      ["文献基础", "127 组 arXiv 检索，3,233 篇去重命中"],
+      ["引用回验", "**63 个 ID 全部经 API 独立回验，0 虚构**"],
+    ],
+    [2200, 7160]
+  )
+);
+
+// --- 摘要 ---
+children.push(
+  H1("摘要", { newPage: true }),
+  P([
+    [
+      "本报告记录一项从文献调研到可运行工程的完整工作：在「金融 + 大模型」方向上检索 arXiv 近四年产出，抽取论文级可实践想法，选定",
+      {},
+    ],
+    ["时间点正确（point-in-time）的泄漏审计评测", { bold: true }],
+    ["作为垂域，并实现为开源 Python 包 finpit。", {}],
+  ]),
+  P([
+    ["核心命题：", { bold: true }],
+    [
+      "论文里「LLM 情绪因子 IC = 0.08」这类结论，有多少是信号本身，有多少是评测流程漏进来的？在真实市场上无法回答（不知道真实 IC），但在合成语料上可以 —— true_ic 已知，虚高因此能被精确归因。",
+      {},
+    ],
+  ]),
+  H2("主要结果"),
+  NUM([
+    ["泄漏能凭空制造显著性，而诚实方法在弱信号上统计功效不足。", { bold: true }],
+    [
+      " 同一实验台上，诚实的 IC 为 0.04 且 bootstrap 区间跨 0；泄漏版 IC 达 0.16–0.31，轻易「显著」。这解释了泄漏为何如此普遍，也印证了 arXiv:2608.27734「故意泄漏的 oracle 拿到 Sharpe=35 并完整通过 Deflated Sharpe 与 PBO 检验」的结论。",
+      {},
+    ],
+  ]),
+  NUM([
+    ["不同泄漏污染不同指标，方向还相反。", { bold: true }],
+    [
+      " 幸存者偏差把均值收益从 −0.00019 翻成 +0.00015 而 IC 几乎不动；未来函数与提示词泄漏则把 IC 抬高数倍而均值收益纹丝不动。任何单一指标都不足以做泄漏诊断。",
+      {},
+    ],
+  ]),
+  NUM([
+    ["LLM 相对词典没有可测量的增益，但该对比对词典不公平。", { bold: true }],
+    [
+      " 1,200 行 / 100 个决策日、按日分组 bootstrap 下，词典 IC +0.0456、LLM +0.0393，差 +0.0063，p ≈ 0.541（不显著）。由于新闻模板与词典词表同源，该结果不可外推为一般结论。",
+      {},
+    ],
+  ])
+);
+
+// --- 1 背景 ---
+children.push(
+  H1("1  背景：为什么选这个方向", { newPage: true }),
+  H2("1.1  文献给出的决定性证据"),
+  P("2025 下半年至 2026 年，金融 LLM 领域最集中的产出不是新模型，而是「我们之前的数字不可信」的证据。检索到的关键结论："),
+  TABLE(
+    ["证据", "出处"],
+    [
+      [
+        "一个故意泄漏的 oracle 报 Sharpe=35，完整通过 Deflated Sharpe 与 PBO 检验。统计修正只能惩罚「多次搜索」，无法识别「特征本身就是未来信息」。",
+        "2608.27734",
+      ],
+      ["随机切分相对时序切分把 MCC 抬高 1.1×–6.5×；FinBERT 端到端微调放大该差距。", "2608.17223"],
+      [
+        "标准零中心配对检验在零技能下假阳性率 11.6%；723 个财报事件上 gross +15.2 bps/event 分解为 composition +25.8 与 selection −10.6。",
+        "2610.04040",
+      ],
+      [
+        "20 年、100+ 标的回测显示早期 LLM 择时优势来自幸存者偏差与数据窥探；该文 comment 明确记录 “Corrected the FinAgent results”。",
+        "2505.07078",
+      ],
+      ["模型的 effective cutoff 跨厂商相差 22 个月，比厂商自报早最多 8 个月。", "2607.18867"],
+    ],
+    [6560, 2800]
+  ),
+  SPACER(),
+  QUOTE([["推论：防泄漏必须做进数据访问层，而不是事后做显著性校正。", { bold: true }]]),
+
+  H2("1.2  必须并列的反向证据"),
+  P("只引用支持自己方向的文献是学术不诚实。检索同时发现："),
+  BULLET([["arXiv:2502.21206", { mono: true }], ["（Chronologically Consistent LLMs）测得 “lookahead bias is modest”；", {}]]),
+  BULLET([["arXiv:2607.11889", { mono: true }], [" 显示 PIT 模型与不受限模型的差距可随规模缩小。", {}]]),
+  P([
+    ["因此正确的结论不是「全是假的」，而是：", {}],
+    ["泄漏幅度高度依赖模型与任务，而多数论文根本不披露时间对齐信息。", { bold: true }],
+    [" 问题在于", {}],
+    ["不可验证", { bold: true }],
+    ["，而不在于", {}],
+    ["必然造假", { bold: true }],
+    ["。", {}],
+  ]),
+
+  H2("1.3  明确的研究空白"),
+  P([
+    ["调研识别出的首要空白：", {}],
+    ["统一开源的泄漏审计工具链不存在", { bold: true }],
+    ["。相关成果散落在 10+ 篇论文里，没有任何开箱即用的实现。本工作是对这一空白的直接回应。", {}],
+  ])
+);
+
+// --- 2 调研方法 ---
+children.push(
+  H1("2  调研方法", { newPage: true }),
+  TABLE(
+    ["项", "值"],
+    [
+      ["数据源", "arXiv 官方 Atom API"],
+      ["查询组数", "127 组（38 长文档 + 48 情绪事件 + 41 Agent）"],
+      ["排序", "submittedDate 降序"],
+      ["时间窗", "2023-01 – 2026-10"],
+      ["去重命中", "3,233 篇（988 / 1,285 / 960）"],
+      ["年度分布", "2026 年占约 60%（该方向正在爆发）"],
+    ],
+    [2200, 7160]
+  ),
+  SPACER(),
+  P([
+    ["防虚构措施：", { bold: true }],
+    [
+      "所有拟写入仓库的引用 ID，均以 id_list 逐一回查 arXiv API，核对标题与 published 日期。63 个 ID 全部通过，0 个不存在。该步骤实际抓出了一处转录手误。",
+      {},
+    ],
+  ]),
+  P([
+    ["证据边界：", { bold: true }],
+    [
+      "判断基于摘要 + 元数据，未读全文 PDF 与代码。凡涉及论文内部细节一律标注「未核实」，并严格区分「摘要未披露 X」与「作者没做 X」。",
+      {},
+    ],
+  ])
+);
+
+// --- 3 系统设计 ---
+children.push(
+  H1("3  系统设计", { newPage: true }),
+  H2("3.1  时间点门控数据层（finpit.pit）"),
+  P("所有数据必须声明 published_at —— 真正对公众可见的时刻，而非事件发生时刻、也不是数据里的日期字段。读取必须经过 as_of 视图："),
+  ...CODE([
+    "with store.as_of(datetime(2024, 3, 1, 12, 0, tzinfo=UTC)) as view:",
+    "    view.get(\"AAPL:close\")     # 放行",
+    "    view.get(\"AAPL:10-K\")      # 该 10-K 到 3/5 才发布，于是：",
+    "# LookaheadError: 未来函数：在 as_of=2024-03-01 12:00 读取 'AAPL:10-K'，",
+    "#                 但该记录到 2024-03-05 14:00 才公开（早用了 98.0 小时）",
+  ]),
+  P([
+    ["关键设计：", { bold: true }],
+    ["「键不存在」与「键存在但尚未公开」是两种不同的结果", { bold: true }],
+    ["。混为一谈会让问题无法定位。", {}],
+  ]),
+
+  H2("3.2  泄漏消融实验台（finpit.eval）"),
+  P("同一条信号送进多条评测流程，每条开启一个真实存在的研究陋习："),
+  TABLE(
+    ["泄漏模式", "对应的真实陋习"],
+    [
+      ["clean", "严格时间点纪律（对照组）"],
+      ["pit_violation", "差一天的未来函数：用目标日当天的新闻预测当天收益"],
+      ["outcome_prompt", "提示词混入事后行情回顾（新闻 API 常返回被更新过的文章）"],
+      ["test_set_select", "在评测集上挑最优超参"],
+      ["cherry_pick", "样本按结果筛选（幸存者偏差）"],
+      ["oracle_latent", "直读潜在真值 —— 给出该信号族上限"],
+      ["future_return", "把目标收益当特征 —— 审计管线健全性自检"],
+    ],
+    [2600, 6760]
+  ),
+  SPACER(),
+
+  H2("3.3  校准合成语料（finpit.data）"),
+  P("要精确测量虚高，必须知道真实信号强度 —— 真实市场数据给不了。合成语料的价值不在「像真的」，而在 true_ic 已知。为避免沦为玩具，生成器复刻了真实市场的典型事实："),
+  TABLE(
+    ["性质", "实测值", "真实市场量级"],
+    [
+      ["日收益标准差", "0.0155", "1%–3%"],
+      ["超额峰度", "15.99", "5–30"],
+      ["波动率聚集（|r| 一阶自相关）", "0.19", "正"],
+      ["目标 IC → 实测 IC", "0.035 → 0.0356", "0.02–0.05"],
+    ],
+    [3600, 2600, 3160]
+  ),
+  SPACER(),
+  P([
+    ["关键设定：", { bold: true }],
+    [
+      "新闻的 published_at 晚于当日收盘，其中约 40% 附带当日行情播报（「该股当日上涨 2.31%」）。后者是未来函数的高危区 —— 这类新闻一旦被对齐到同一天的收益，就会凭空造出极高 IC，因为它复述的就是答案本身。",
+      {},
+    ],
+  ]),
+
+  H2("3.4  切分泄漏审计（finpit.audit）"),
+  P([
+    [
+      "对同一份特征、同一个模型，做随机切分 vs 时序切分的对照，报出虚高倍数。纯 numpy 实现（哈希字符二元组 + 逻辑回归），",
+      {},
+    ],
+    ["刻意不引入 scikit-learn", { bold: true }],
+    [" —— 避免「用封装好的东西复现别人的结论」这种循环论证。", {}],
+  ])
+);
+
+// --- 4 实验结果 ---
+children.push(
+  H1("4  实验结果", { newPage: true }),
+  H2("4.1  泄漏消融 —— 词典基线"),
+  P([
+    ["40 资产 × 750 交易日，12,000 行样本。", {}],
+    ["上帝视角真实 IC = 0.0356。", { bold: true }],
+  ]),
+  TABLE(
+    ["泄漏模式", "IC", "RankIC", "命中率", "均值收益", "IC 虚高", "PIT 拦截"],
+    [
+      ["clean", "+0.0257", "+0.0329", "0.5203", "−0.00019", "—", "0"],
+      ["pit_violation", "+0.1216", "+0.1707", "0.5915", "−0.00019", "**+373.8%**", "**12000**"],
+      ["outcome_prompt", "+0.2091", "+0.2656", "0.6478", "−0.00019", "**+714.9%**", "**12000**"],
+      ["test_set_select", "+0.0266", "+0.0325", "0.5203", "−0.00019", "+3.8%", "0"],
+      ["cherry_pick", "+0.0266", "+0.0325", "0.5177", "**+0.00015**", "+3.5%", "0"],
+      ["oracle_latent", "+0.0391", "+0.0466", "0.5166", "−0.00019", "+52.5%", "0"],
+      ["future_return", "+1.0000", "+1.0000", "1.0000", "−0.00019", "+3797.7%", "0"],
+    ],
+    [2200, 1160, 1160, 1160, 1400, 1200, 1080]
+  ),
+  SPACER(),
+
+  H2("4.2  泄漏消融 —— LLM 打分"),
+  P("同一实验台换成 deepseek-v4.1-flash（240 行，匿名化开启）："),
+  TABLE(
+    ["泄漏模式", "IC", "RankIC", "命中率", "IC 虚高", "PIT 拦截"],
+    [
+      ["clean", "+0.0468", "+0.0899", "0.5749", "—", "0"],
+      ["pit_violation", "+0.1599", "+0.1714", "0.5503", "**+241.5%**", "240"],
+      ["outcome_prompt", "+0.3148", "+0.3776", "0.8190", "**+572.2%**", "240"],
+      ["test_set_select", "+0.0607", "+0.1241", "0.5622", "+29.6%", "0"],
+      ["cherry_pick", "+0.0029", "+0.0444", "0.5448", "−93.8%", "0"],
+      ["oracle_latent", "+0.0891", "+0.1107", "0.5400", "+90.2%", "0"],
+      ["future_return", "+1.0000", "+1.0000", "1.0000", "+2035.6%", "0"],
+    ],
+    [2460, 1500, 1500, 1400, 1400, 1100]
+  ),
+  SPACER(),
+  P([
+    [
+      "泄漏方向与词典一致，且幅度更大：outcome_prompt 的绝对 IC 达 ",
+      {},
+    ],
+    ["+0.3148", { bold: true }],
+    ["，是所有配置中最「好看」的数字，而它完全是假的。", {}],
+  ]),
+  QUOTE([
+    [
+      "注意：本轮 oracle_latent 跑出 0.0891，远超真值 0.0356，说明 240 行（40 资产 × 仅 6 个决策日）样本过小。故下表是专门的补充实验。",
+      {},
+    ],
+  ]),
+
+  H2("4.3  LLM vs 词典：1,200 行 / 100 个决策日 + 按日分组 bootstrap"),
+  P("面板按决策日聚簇（同一时点的横截面不独立），故用按日分组的 bootstrap（2,000 次重抽样）估计标准误，而非朴素假设 n=1200 个独立样本。"),
+  TABLE(
+    ["方法", "IC", "RankIC", "bootstrap SE", "95% 区间"],
+    [
+      ["oracle（潜在真值）", "+0.0695", "+0.0888", "0.0267", "[+0.0163, +0.1207]"],
+      ["lexicon-v1", "+0.0456", "+0.0534", "0.0284", "**[−0.0087**, +0.0993]"],
+      ["llm:deepseek-v4.1-flash", "+0.0393", "+0.0528", "0.0278", "**[−0.0158**, +0.0919]"],
+    ],
+    [2760, 1400, 1400, 1700, 2100]
+  ),
+  SPACER(),
+  P([
+    ["词典 − LLM 的 IC 差 = ", {}],
+    ["+0.0063", { bold: true }],
+    ["，95% 区间 [−0.0124, +0.0250]，双侧 ", {}],
+    ["p ≈ 0.541", { bold: true }],
+    [" → 差异不显著。", {}],
+  ]),
+  P("LLM 调用：100 次（其中 40 次命中缓存），解析失败 24/1200 = 2.0%。"),
+
+  H2("4.4  切分泄漏审计"),
+  ...CODE([
+    "受控模拟（标签具时间持续性，验证审计器灵敏度）：",
+    "  随机切分   MCC=+0.3673  准确率=0.6683",
+    "  时序切分   MCC=+0.3035  准确率=0.6576",
+    "  虚高倍数   MCC 1.21×   → 存在切分泄漏",
+    "",
+    "真实任务（次日收益符号）：",
+    "  随机切分   MCC=−0.0027  准确率=0.4952",
+    "  时序切分   MCC=+0.0076  准确率=0.4950",
+    "  虚高倍数   MCC −0.36×   → 切分泄漏不明显",
+  ]),
+  P([
+    ["第二行是刻意的诚实结果：次日收益符号本身就是", {}],
+    ["不可学", { bold: true }],
+    ["的任务（IC 0.026 远不足以让符号分类超越抛硬币），没有可被放大的信号，自然无从泄漏。", {}],
+  ]),
+  P("参数扫描（未见于文献的补充观察）："),
+  TABLE(
+    ["noise", "persistence", "随机 MCC", "时序 MCC", "虚高"],
+    [
+      ["2.5", "0.97", "+0.4418", "+0.3260", "**1.36×**"],
+      ["2.5", "0.99", "+0.5868", "+0.5249", "1.12×"],
+      ["4.0", "0.97", "+0.4482", "+0.3564", "1.26×"],
+      ["6.0", "0.97", "+0.4547", "+0.3588", "1.27×"],
+    ],
+    [1560, 1900, 2000, 2000, 1900]
+  ),
+  SPACER(),
+  P([
+    ["标签持续性越高，切分虚高反而越小", { bold: true }],
+    ["（0.97 → 1.36×，0.99 → 1.09×）：状态几乎不变时，两种切分表现趋同。这提示切分泄漏的严重程度与标签的时间结构直接相关。", {}],
+  ])
+);
+
+// --- 5 讨论 ---
+children.push(
+  H1("5  讨论", { newPage: true }),
+  H2("5.1  核心发现：统计功效不足 vs 泄漏制造显著性"),
+  P([
+    ["4.3 节最值得注意的不是 LLM 与词典谁高谁低，而是", {}],
+    ["三个 95% 区间全部跨 0", { bold: true }],
+    ["。", {}],
+  ]),
+  P("面板真值 IC = 0.0695，而词典做出 0.0456、LLM 做出 0.0393 —— 在 100 个决策日的样本上都无法与零区分。而同一个实验台里，泄漏版 IC 是 0.16–0.31，轻松「显著」。"),
+  QUOTE([
+    ["诚实方法在弱信号上统计功效不足，而泄漏能凭空制造显著性。", { bold: true }],
+  ]),
+  QUOTE([
+    [
+      "一个研究者只要不小心泄漏，就能拿到可发表的结果；坚持不泄漏，往往什么都拿不到。",
+      {},
+    ],
+  ]),
+  P([
+    ["这把泄漏从「道德问题」还原为", {}],
+    ["激励结构问题", { bold: true }],
+    ["。这正是 arXiv:2608.27734 那个「故意泄漏的 oracle 拿到 Sharpe=35 并完整通过所有统计检验」在日常实践中的样子，也是为什么结构约束必须取代事后统计校正。", {}],
+  ]),
+
+  H2("5.2  不同泄漏污染不同指标"),
+  TABLE(
+    ["泄漏", "IC 影响", "均值收益影响"],
+    [
+      ["cherry_pick（幸存者偏差）", "+3.5%（几乎不动）", "**−0.00019 → +0.00015（翻转）**"],
+      ["pit_violation / outcome_prompt", "**+373.8% / +714.9%**", "完全不动"],
+    ],
+    [3200, 3000, 3160]
+  ),
+  SPACER(),
+  P([
+    ["两类污染的维度不同、方向还相反。", { bold: true }],
+    ["因此任何单一指标都不足以做泄漏诊断，框架必须同时报告相关性指标与水平指标 —— 这是 SignalMetrics 同时保留 IC 与 mean_return 的原因。", {}],
+  ]),
+
+  H2("5.3  IC 本身不是泄漏探测器"),
+  P("pit_violation 的 IC 更高（+373.8%），但只看 IC 完全无法判断这是信号还是泄漏。只有 PIT 审计层给出了 12,000 次越界的记录。这与 arXiv:2608.27734 的结论一致：统计量无法替代结构约束。"),
+
+  H2("5.4  文本抽取损失的量化"),
+  P("oracle_latent（+0.0391）逼近真实 IC（0.0356），词典基线只有 +0.0257 —— 词典法只榨出约 66% 的可得信号。这个 gap 是评价任何抽取器（含 LLM）的正确基准，而不是跟随机猜比。"),
+
+  H2("5.5  关于 LLM vs 词典的公平性"),
+  P([
+    ["必须明确指出：", {}],
+    ["4.3 节的对比对词典有利，不是公平竞赛。", { bold: true }],
+  ]),
+  P("新闻模板与词典词表同出于本工作作者之手 —— 模板用「超预期」「砍单」，词典就收了这些词。词典实质上知道答案词汇；LLM 只拿到一句通用 prompt。"),
+  P([
+    ["因此该结果", {}],
+    ["不能外推为「LLM 不如词典」的一般结论", { bold: true }],
+    ["。它只说明：在词汇已被领域专家穷举的前提下，通用 LLM 至多打平。这与 arXiv:2609.20198、2608.04200、2506.06335 的报告方向一致 —— LLM 在经济层面没有超过判别式基线。", {}],
+  ])
+);
+
+// --- 6 工程实录 ---
+children.push(
+  H1("6  工程实录", { newPage: true }),
+  H2("6.1  凭据封禁事件（值得记录的失败）"),
+  P("首次接入 LLM 时，凭据在约 30 次调用后被服务端封禁。复盘发现三条客户端规范全部违反："),
+  TABLE(
+    ["项", "错误做法", "正确做法"],
+    [
+      ["session ID", "**每请求随机 UUID**", "会话内稳定复用"],
+      ["User-Agent", "python-httpx/0.28.1", "自有标识 finpit-research/0.1"],
+      ["请求节奏", "2 分钟 26 次无间隔", "**节流 1.5s**"],
+    ],
+    [1900, 3700, 3760]
+  ),
+  SPACER(),
+  P("服务端条款明确写着监控滥用流量。节流因此被实现为 LLMClient 的正式功能，而非可选优化 —— 它是正确性要求。改用合规客户端 + 新 key 后，160 次调用全程稳定。"),
+
+  H2("6.2  静默降级掩盖真实故障"),
+  P("用推理模型（deepseek-v4-pro）时，12 条新闻的思维链耗尽 max_tokens，content 返回空。而最初的代码会静默回退到 reasoning_content，把半截思维链当成答案 —— 症状表现为误导性的「JSON 解析失败」，让人往解析器方向排查。"),
+  P("修复："),
+  BULLET("Completion 记录 finish_reason；"),
+  BULLET("被截断（length）时拒绝回退，并明确报出「被 max_tokens 截断」；"),
+  BULLET("缓存回放同样恢复 finish_reason，否则同样误报。"),
+  P([
+    ["效果：失败率从 ", {}],
+    ["13% 降至 2%", { bold: true }],
+    ["。已有回归测试锁定该行为。", {}],
+  ]),
+  QUOTE([
+    ["教训：静默降级会伪造出「模型很稳」的假象。失败必须被计数、被区分、被报告。", { bold: true }],
+  ]),
+
+  H2("6.3  缓存带来的可复现性"),
+  P("LLM 结果按 (model, messages, params) 哈希落盘。171 条缓存（152 KB）使："),
+  BULLET("重跑对比实验零 API 成本；"),
+  BULLET("4.3 节的 bootstrap 分析可反复调整而无需重新调用；"),
+  BULLET("缓存键包含模型名（曾因缺失该字段，导致换模型时读到旧结果而做出错误对比）。")
+);
+
+// --- 7 局限 ---
+children.push(
+  H1("7  局限（不粉饰）", { newPage: true }),
+  NUM("主力实验基于合成数据。合成数据是测量泄漏的正确工具（需要已知真值），但无法替代真实数据上的验证。真实数据接入是下一步。"),
+  NUM("LLM 对比中词典占便宜。见 5.5 节，不可外推为一般结论。"),
+  NUM("统计功效偏弱。100 个决策日下，真值 IC=0.07 的信号，两种方法的 95% 区间都跨 0。想可靠区分 0.04 与 0.05 量级的差异需要更多决策日，成本主要落在 LLM 调用上。"),
+  NUM("LLM 路径存在约 2% 的截断失败率。失败样本退化为 confidence=0 占位符（在加权聚合中自动失效，不污染分数），但损失有效样本量。"),
+  NUM("框架对弱泄漏灵敏度有限。test_set_select 与 cherry_pick 的 IC 虚高仅 +3.8% / +3.5%（8 组候选超参高度相关）。"),
+  NUM("outcome_prompt 是词典法也能捕捉的显式形态。更隐蔽的语义级结果泄漏需要 LLM 才能识别，尚未构造该形态的对照。"),
+  NUM("未实现 LAP 泄漏探针（2512.23847）与 Availability Contract 校验器（2610.21659）。"),
+  NUM("未读论文全文。文献结论基于摘要与元数据；各论文的代码开源状态除 FinanceBench 外均标「未核实」。")
+);
+
+// --- 8 结论 ---
+children.push(
+  H1("8  结论与展望", { newPage: true }),
+  P([
+    ["本工作验证了一个可操作的立场：", {}],
+    ["泄漏防御必须做进数据访问层。", { bold: true }],
+    ["在 true_ic 已知的受控环境中，泄漏造成的虚高可以被精确量化（+373.8% 至 +714.9%），而不同泄漏污染的指标维度不同、方向还相反，因此必须联合诊断。", {}],
+  ]),
+  P([
+    ["更重要的是，实验揭示了一个结构性问题：", {}],
+    ["诚实评测在弱信号上功效不足，泄漏却能制造显著性。", { bold: true }],
+    ["这解释了泄漏为何普遍，也说明为什么仅靠「研究者自律」不够 —— 需要把约束做成基础设施。", {}],
+  ]),
+  H2("下一步（按价值排序）"),
+  NUM("真实数据接入（SEC EDGAR + 行情，全流程 PIT）—— 把结论从合成推向真实；"),
+  NUM("LAP 泄漏探针（arXiv:2512.23847）—— 诊断参数化后见之明；"),
+  NUM("AvailabilityContract 校验器（arXiv:2610.21659）—— 强制事件内部时序约束；"),
+  NUM("Trial Ledger 搜索强度记账 —— 累计试验数驱动 Deflated Sharpe / PBO；"),
+  NUM("扩大决策日数量 —— 提升统计功效，使 0.04 与 0.05 量级可区分。")
+);
+
+// --- 附录 ---
+children.push(
+  H1("附录 A  论文清单摘要", { newPage: true }),
+  P("完整 63 篇引用清单（含 ID、标题、日期）见 docs/papers.md。分方向检索规模："),
+  TABLE(
+    ["方向", "查询数", "去重命中", "Top 12 中 2026 年占比"],
+    [
+      ["长文档理解与 RAG", "38", "988", "6/12"],
+      ["情绪 / 事件 / 预测", "48", "1,285", "10/12"],
+      ["LLM 交易 Agent", "41", "960", "6/12"],
+    ],
+    [3160, 1700, 2000, 2500]
+  ),
+  SPACER(),
+  H1("附录 B  提取的论文级想法（15 条）"),
+  TABLE(
+    ["#", "想法", "来源", "状态"],
+    [
+      ["1", "时间点门控数据访问层", "2608.27734 / 2607.04958 / 2608.09988", "已实现"],
+      ["2", "泄漏消融基准", "2608.17223 / 2605.16895", "已实现"],
+      ["3", "切分泄漏审计", "2608.17223", "已实现"],
+      ["4", "匿名化作为污染控制", "2309.17322 / 2411.00420 / 2605.28359", "已实现"],
+      ["5", "Oracle 上界基准", "本工作设计", "已实现"],
+      ["6", "多指标联合诊断", "2610.04040", "已实现"],
+      ["7", "Availability Contract 校验器", "2610.21659", "路线图"],
+      ["8", "LAP 泄漏探针", "2512.23847", "路线图"],
+      ["9", "Trial Ledger 搜索强度记账", "2608.27734", "路线图"],
+      ["10", "确定性风险外壳", "2609.19705", "未采纳"],
+      ["11", "Transition-matched 反事实审计", "2610.04040", "未采纳"],
+      ["12", "双效度报告", "2609.11144 / 2609.20198", "部分"],
+      ["13", "页级中间检索器", "2602.17981", "未采纳"],
+      ["14", "结构感知 chunker", "2402.05131", "未采纳"],
+      ["15", "可执行验证层", "2608.10213 / 2604.23588", "路线图"],
+    ],
+    [560, 3200, 3700, 1900]
+  ),
+  SPACER(),
+  H1("附录 C  可复现实验命令"),
+  ...CODE([
+    "pip install -e \".[dev]\"",
+    "",
+    "# 泄漏消融（不需要 API）",
+    "finpit demo --rows 12000",
+    "",
+    "# 切分泄漏审计",
+    "finpit split-audit --demo          # 受控模拟（可测出泄漏）",
+    "finpit split-audit --rows 6000     # 真实任务（诚实零结果）",
+    "",
+    "# LLM 版消融（需 .env 配置）",
+    "finpit ablation --extractor llm --model deepseek-v4.1-flash \\",
+    "                --rows 240 --batch-size 12",
+    "",
+    "# LLM vs 词典 + bootstrap（全部命中缓存后零成本）",
+    "python scripts/llm_vs_lexicon.py",
+    "",
+    "pytest -q                          # 98 个测试",
+  ])
+);
+
+// ==================================================================== 装配
+const doc = new Document({
+  styles: {
+    default: { document: { run: { font: "Arial", size: 21 } } },
+    paragraphStyles: [
+      {
+        id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 30, bold: true, font: "Arial", color: "1F3864" },
+        paragraph: { spacing: { before: 320, after: 200 }, outlineLevel: 0 },
+      },
+      {
+        id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 25, bold: true, font: "Arial", color: "2E5496" },
+        paragraph: { spacing: { before: 260, after: 140 }, outlineLevel: 1 },
+      },
+      {
+        id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true,
+        run: { size: 22, bold: true, font: "Arial", color: "2E5496" },
+        paragraph: { spacing: { before: 200, after: 120 }, outlineLevel: 2 },
+      },
+    ],
+  },
+  numbering: {
+    config: [
+      {
+        reference: "bullets",
+        levels: [
+          {
+            level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 480, hanging: 240 } } },
+          },
+        ],
+      },
+      {
+        reference: "numbers",
+        levels: [
+          {
+            level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT,
+            style: { paragraph: { indent: { left: 480, hanging: 240 } } },
+          },
+        ],
+      },
+    ],
+  },
+  sections: [
+    {
+      properties: {
+        page: {
+          size: { width: 12240, height: 15840 },
+          margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+        },
+      },
+      headers: {
+        default: new Header({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: "2E75B6", space: 4 } },
+              children: [new TextRun({ text: "金融 + 大模型：从论文调研到可复现工程", size: 17, color: "808080" })],
+            }),
+          ],
+        }),
+      },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({ text: "第 ", size: 17, color: "808080" }),
+                new TextRun({ children: [PageNumber.CURRENT], size: 17, color: "808080" }),
+                new TextRun({ text: " 页", size: 17, color: "808080" }),
+              ],
+            }),
+          ],
+        }),
+      },
+      children,
+    },
+  ],
+});
+
+Packer.toBuffer(doc).then((buf) => {
+  fs.writeFileSync(OUT, buf);
+  console.log(`已生成: ${OUT}  (${(buf.length / 1024).toFixed(1)} KB)`);
+});
