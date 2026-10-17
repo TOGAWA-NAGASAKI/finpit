@@ -2,6 +2,7 @@
   "true_ic": 0.03559,
   "extractor": "lexicon-v1",
   "n_panel_rows": 12000,
+  "bootstrap_applied": true,
   "audit": {
     "store": "synthetic",
     "total_accesses": 12000,
@@ -15,6 +16,11 @@
       "mode": "clean",
       "note": "严格时间点纪律，无泄漏（对照组）",
       "pit_blocks": 0,
+      "ci95": [
+        0.00692,
+        0.04398
+      ],
+      "spans_zero": false,
       "inflation_ic": 0.0,
       "ic": 0.02566,
       "rank_ic": 0.03288,
@@ -27,6 +33,11 @@
       "mode": "pit_violation",
       "note": "差一天的未来函数：用**目标日当天**的新闻预测当天收益。PIT 门控对每一行都会拦截",
       "pit_blocks": 12000,
+      "ci95": [
+        0.10506,
+        0.13887
+      ],
+      "spans_zero": false,
       "inflation_ic": 3.7379,
       "ic": 0.12155,
       "rank_ic": 0.17069,
@@ -39,6 +50,11 @@
       "mode": "outcome_prompt",
       "note": "提示词混入事后行情回顾（新闻 API 常见：文章被事后更新）",
       "pit_blocks": 12000,
+      "ci95": [
+        0.19155,
+        0.2262
+      ],
+      "spans_zero": false,
       "inflation_ic": 7.1491,
       "ic": 0.20907,
       "rank_ic": 0.26564,
@@ -51,6 +67,11 @@
       "mode": "test_set_select",
       "note": "在评测集上挑最优 scale=0.5（共试 8 组）；报出的是选择后的最大值，即乐观偏差",
       "pit_blocks": 0,
+      "ci95": [
+        0.00853,
+        0.0455
+      ],
+      "spans_zero": false,
       "inflation_ic": 0.0376,
       "ic": 0.02662,
       "rank_ic": 0.03246,
@@ -63,6 +84,11 @@
       "mode": "cherry_pick",
       "note": "按结果筛选样本，剔除表现最差的 20% 标的（幸存者偏差）；保留 9600 行",
       "pit_blocks": 0,
+      "ci95": [
+        0.00602,
+        0.04616
+      ],
+      "spans_zero": false,
       "inflation_ic": 0.0353,
       "ic": 0.02656,
       "rank_ic": 0.03252,
@@ -75,6 +101,11 @@
       "mode": "oracle_latent",
       "note": "绕过文本抽取，直读潜在真值：信号族上限",
       "pit_blocks": 0,
+      "ci95": [
+        0.02323,
+        0.05568
+      ],
+      "spans_zero": false,
       "inflation_ic": 0.5252,
       "ic": 0.03913,
       "rank_ic": 0.04664,
@@ -87,6 +118,11 @@
       "mode": "future_return",
       "note": "把目标收益本身当特征：应得 IC≈1，用于验证审计管线可检出泄漏",
       "pit_blocks": 0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "spans_zero": false,
       "inflation_ic": 37.9773,
       "ic": 1.0,
       "rank_ic": 1.0,

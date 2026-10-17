@@ -6,11 +6,10 @@
 
 from __future__ import annotations
 
-import numpy as np
 import pytest
 
 from finpit.data import SyntheticConfig, generate_corpus
-from finpit.eval import LeakMode, LeakageAblation, build_panel
+from finpit.eval import LeakageAblation, LeakMode, build_panel
 from finpit.signals import LexiconExtractor
 
 

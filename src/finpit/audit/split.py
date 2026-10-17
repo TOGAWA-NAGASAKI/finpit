@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -165,7 +166,8 @@ class SplitAuditResult:
             f"切分审计（{self.n_folds} 折，{self.n_samples} 样本 / {self.n_features} 维）：\n"
             f"  随机切分   MCC={self.random_mcc:+.4f}  准确率={self.random_acc:.4f}\n"
             f"  时序切分   MCC={self.chronological_mcc:+.4f}  准确率={self.chronological_acc:.4f}\n"
-            f"  虚高倍数   MCC {self.mcc_inflation:.2f}×  准确率 {self.acc_inflation:.2f}×  → {verdict}"
+            f"  虚高倍数   MCC {self.mcc_inflation:.2f}×  "
+            f"准确率 {self.acc_inflation:.2f}×  → {verdict}"
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -308,11 +310,9 @@ class SplitAuditor:
         """随机 K 折 —— 时间结构被彻底打乱，泄漏的温床。"""
         rng = np.random.default_rng(self.seed)
         shuffled = rng.permutation(n)
+        chunks = np.array_split(shuffled, self.n_folds)
         return [
-            (
-                np.concatenate([f for j, f in enumerate(np.array_split(shuffled, self.n_folds)) if j != k]),
-                np.array_split(shuffled, self.n_folds)[k],
-            )
+            (np.concatenate([f for j, f in enumerate(chunks) if j != k]), chunks[k])
             for k in range(self.n_folds)
         ]
 

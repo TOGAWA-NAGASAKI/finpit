@@ -17,7 +17,7 @@ from pathlib import Path
 from finpit.audit import SplitAuditor, simulate_persistent_panel
 from finpit.config import Settings
 from finpit.data import SyntheticConfig, generate_corpus
-from finpit.eval import LeakMode, LeakageAblation, build_panel
+from finpit.eval import LeakageAblation, LeakMode, build_panel
 from finpit.signals import LexiconExtractor
 
 # 默认报告落盘位置
@@ -83,7 +83,7 @@ def cmd_ablation(args: argparse.Namespace) -> int:
     extractor = _build_extractor(args, settings)
     modes = [LeakMode(m) for m in args.modes] if args.modes else list(LeakMode)
     ablation = LeakageAblation(corpus, extractor, max_rows=args.rows)
-    report = ablation.run(modes)
+    report = ablation.run(modes, bootstrap=args.bootstrap)
 
     print(report.table())
     print()
@@ -161,7 +161,7 @@ def cmd_demo(args: argparse.Namespace) -> int:
 
     extractor = LexiconExtractor()
     ablation = LeakageAblation(corpus, extractor, max_rows=args.rows)
-    report = ablation.run()
+    report = ablation.run(bootstrap=args.bootstrap)
     print(report.table())
     print()
 
@@ -217,10 +217,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=f"只跑指定模式，可选: {', '.join(m.value for m in LeakMode)}",
     )
+    p_abl.add_argument(
+        "--bootstrap",
+        type=int,
+        default=0,
+        help="按决策日分组重抽样的次数（0=不算）。建议 2000",
+    )
     p_abl.set_defaults(func=cmd_ablation)
 
     p_demo = sub.add_parser("demo", help="一键复现全部结果")
     add_common(p_demo)
+    p_demo.add_argument(
+        "--bootstrap",
+        type=int,
+        default=2000,
+        help="按决策日分组重抽样的次数（demo 默认 2000）",
+    )
     p_demo.set_defaults(func=cmd_demo)
 
     p_split = sub.add_parser("split-audit", help="随机切分 vs 时序切分的泄漏审计")

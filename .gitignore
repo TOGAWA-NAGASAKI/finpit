@@ -12,3 +12,5 @@ build/
 .pytest_cache/
 _research/
 _scratch/
+# 运行时缓存（EDGAR 原始响应、LLM 结果），不入库
+.cache/

@@ -18,7 +18,8 @@ import re
 from dataclasses import dataclass, field
 
 from finpit.llm.client import LLMClient, LLMError
-from finpit.signals.base import NewsItem, Signal, anonymize as anonymize_text
+from finpit.signals.base import NewsItem, Signal
+from finpit.signals.base import anonymize as anonymize_text
 
 log = logging.getLogger(__name__)
 

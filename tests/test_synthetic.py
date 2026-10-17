@@ -28,7 +28,9 @@ def test_different_seed_differs():
     a = generate_corpus(SyntheticConfig(n_assets=5, n_days=60, seed=1))
     b = generate_corpus(SyntheticConfig(n_assets=5, n_days=60, seed=2))
     key = f"{a.assets[0]}:news"
-    assert a.store._by_key[key][0].payload["headline"] != b.store._by_key[key][0].payload["headline"]
+    head_a = a.store._by_key[key][0].payload["headline"]
+    head_b = b.store._by_key[key][0].payload["headline"]
+    assert head_a != head_b
 
 
 def test_realized_ic_matches_target(corpus):

@@ -27,10 +27,10 @@
 
 from __future__ import annotations
 
-import enum
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 import numpy as np
@@ -43,7 +43,7 @@ from finpit.signals.base import Extractor, NewsItem
 log = logging.getLogger(__name__)
 
 
-class LeakMode(str, enum.Enum):
+class LeakMode(StrEnum):
     """评测流程的泄漏模式。"""
 
     CLEAN = "clean"
@@ -88,6 +88,31 @@ class ModeResult:
     metrics: SignalMetrics
     pit_blocks: int
     note: str = ""
+    ci_low: float = float("nan")
+    ci_high: float = float("nan")
+    # 逐行得分与实际收益，仅供 bootstrap 使用（不进 repr、不参与相等比较）
+    scores: np.ndarray | None = field(default=None, repr=False, compare=False)
+    actual: np.ndarray | None = field(default=None, repr=False, compare=False)
+    row_index: np.ndarray | None = field(default=None, repr=False, compare=False)
+    """本模式的第 i 行对应面板的第 ``row_index[i]`` 行。
+
+    ``cherry_pick`` 会删样本，长度与面板不一致，故 bootstrap 必须靠这个
+    映射才能把行正确归回决策日。缺失该字段会让分组重抽样张冠李戴。
+    """
+
+    @property
+    def has_ci(self) -> bool:
+        return bool(np.isfinite(self.ci_low) and np.isfinite(self.ci_high))
+
+    @property
+    def spans_zero(self) -> bool:
+        """95% 区间是否跨 0 —— 跨 0 意味着无法与「无预测力」区分。"""
+        return self.has_ci and self.ci_low <= 0 <= self.ci_high
+
+    def ci_text(self) -> str:
+        if not self.has_ci:
+            return "—"
+        return f"[{self.ci_low:+.4f}, {self.ci_high:+.4f}]"
 
     def inflation_ic(self, baseline_ic: float) -> float:
         """相对对照组的 IC 虚高比例。"""
@@ -123,26 +148,65 @@ class AblationReport:
     def table(self) -> str:
         """渲染成可粘贴进 README 的 markdown 表格。"""
         base = self.clean.metrics
-        lines = [
-            "| 泄漏模式 | IC | RankIC | 命中率 | 分位差 | 均值收益 | IC 虚高 | PIT 拦截 |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|",
-        ]
+        has_ci = any(r.has_ci for r in self.results)
+        if has_ci:
+            lines = [
+                "| 泄漏模式 | IC | 95% 区间 | RankIC | 命中率 | 均值收益 | IC 虚高 | PIT 拦截 |",
+                "|---|---:|---|---:|---:|---:|---:|---:|",
+            ]
+        else:
+            lines = [
+                "| 泄漏模式 | IC | RankIC | 命中率 | 分位差 | 均值收益 | IC 虚高 | PIT 拦截 |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+
         for result in self.results:
             m = result.metrics
             infl = result.inflation_ic(base.ic)
             infl_text = (
                 "—" if result.mode is LeakMode.CLEAN or not np.isfinite(infl) else f"{infl:+.1%}"
             )
-            lines.append(
-                f"| `{result.mode.value}` | {m.ic:+.4f} | {m.rank_ic:+.4f} | "
-                f"{m.hit_rate:.4f} | {m.quantile_spread:+.5f} | {m.mean_return:+.5f} | "
-                f"{infl_text} | {result.pit_blocks} |"
-            )
+            cells = [f"`{result.mode.value}`", f"{m.ic:+.4f}"]
+            if has_ci:
+                ci = result.ci_text()
+                if result.spans_zero:
+                    ci = f"**{ci}**"
+                cells.append(ci)
+                cells += [
+                    f"{m.rank_ic:+.4f}",
+                    f"{m.hit_rate:.4f}",
+                    f"{m.mean_return:+.5f}",
+                    infl_text,
+                    str(result.pit_blocks),
+                ]
+            else:
+                cells += [
+                    f"{m.rank_ic:+.4f}",
+                    f"{m.hit_rate:.4f}",
+                    f"{m.quantile_spread:+.5f}",
+                    f"{m.mean_return:+.5f}",
+                    infl_text,
+                    str(result.pit_blocks),
+                ]
+            lines.append("| " + " | ".join(cells) + " |")
+
         lines.append("")
         lines.append(
             f"合成语料真实 IC = **{self.true_ic:.4f}**（上帝视角）；"
             f"抽取器 = `{self.extractor_name}`；样本 {self.n_panel_rows} 行。"
         )
+        if has_ci:
+            spanning = [
+                r
+                for r in self.results
+                if r.spans_zero and r.mode is not LeakMode.FUTURE_RETURN
+            ]
+            if spanning:
+                lines.append(
+                    "**95% 区间跨 0 的模式：`"
+                    + "`, `".join(r.mode.value for r in spanning)
+                    + "` —— 这些配置在统计上无法与「无预测力」区分。**"
+                )
         leaks = [r for r in self.results if r.mode.inflating]
         if leaks and np.isfinite(base.ic):
             worst = max(leaks, key=lambda r: r.metrics.ic)
@@ -171,16 +235,20 @@ class AblationReport:
 
     def to_dict(self) -> dict[str, Any]:
         base = self.clean.metrics
+        any_ci = any(r.has_ci for r in self.results)
         return {
             "true_ic": round(self.true_ic, 5),
             "extractor": self.extractor_name,
             "n_panel_rows": self.n_panel_rows,
+            "bootstrap_applied": any_ci,
             "audit": self.audit,
             "results": [
                 {
                     "mode": r.mode.value,
                     "note": r.note,
                     "pit_blocks": r.pit_blocks,
+                    "ci95": None if not r.has_ci else [round(r.ci_low, 5), round(r.ci_high, 5)],
+                    "spans_zero": r.spans_zero if r.has_ci else None,
                     "inflation_ic": None
                     if not np.isfinite(r.inflation_ic(base.ic))
                     else round(r.inflation_ic(base.ic), 4),
@@ -268,7 +336,21 @@ class LeakageAblation:
                 self._news_index[(record.payload["date"], asset)] = record
 
     # ------------------------------------------------------------------ 主流程
-    def run(self, modes: list[LeakMode] | None = None) -> AblationReport:
+    def run(
+        self,
+        modes: list[LeakMode] | None = None,
+        *,
+        bootstrap: int = 0,
+        seed: int = 20261016,
+    ) -> AblationReport:
+        """跑消融实验。
+
+        Args:
+            modes: 要跑的泄漏模式，默认全部。
+            bootstrap: 若 > 0，按**决策日分组**重抽样该次数，为每个模式
+                计算 IC 的 95% 区间。同一时点的横截面并不独立，故必须
+                按日聚簇重抽样，朴素地对行重抽样会低估标准误。
+        """
         modes = modes or list(LeakMode)
         self.corpus.store.reset_audit()
 
@@ -285,6 +367,9 @@ class LeakageAblation:
         for mode in modes:
             results.append(self._run_mode(mode, panel, actual, baseline_scores, blocks))
 
+        if bootstrap > 0:
+            self._bootstrap(results, panel, n_boot=bootstrap, seed=seed)
+
         return AblationReport(
             results=results,
             true_ic=self.corpus.realized_ic(),
@@ -292,6 +377,47 @@ class LeakageAblation:
             extractor_name=getattr(self.extractor, "name", type(self.extractor).__name__),
             audit=self.corpus.store.audit().to_dict(),
         )
+
+    @staticmethod
+    def _bootstrap(
+        results: list[ModeResult],
+        panel: list[PanelRow],
+        *,
+        n_boot: int,
+        seed: int,
+    ) -> None:
+        """按决策日分组重抽样，就地写入各模式的 95% 区间。
+
+        重抽样单位是**决策日**而非单行：同一时点的横截面并不独立，
+        对行朴素重抽样会低估标准误。
+        """
+        all_dates = sorted({row.decision_time for row in panel})
+        if len(all_dates) < 4:
+            return
+        date_pos = {d: i for i, d in enumerate(all_dates)}
+        rng = np.random.default_rng(seed)
+
+        for result in results:
+            if result.scores is None or result.actual is None or result.row_index is None:
+                continue
+
+            # 把本模式的行按决策日分组（用 row_index 映射回面板）
+            groups: dict[int, list[int]] = {}
+            for local_i, panel_i in enumerate(result.row_index):
+                groups.setdefault(date_pos[panel[panel_i].decision_time], []).append(local_i)
+            group_arrays = {k: np.asarray(v) for k, v in groups.items()}
+            keys = sorted(group_arrays)
+
+            ics = np.empty(n_boot, dtype=float)
+            for b in range(n_boot):
+                picks = rng.integers(0, len(keys), len(keys))
+                idx = np.concatenate([group_arrays[keys[p]] for p in picks])
+                ics[b] = evaluate(result.scores[idx], result.actual[idx]).ic
+            finite = ics[np.isfinite(ics)]
+            if len(finite) < n_boot // 2:
+                continue
+            result.ci_low = float(np.percentile(finite, 2.5))
+            result.ci_high = float(np.percentile(finite, 97.5))
 
     # ------------------------------------------------------------------ 单模式
     def _run_mode(
@@ -304,6 +430,8 @@ class LeakageAblation:
     ) -> ModeResult:
         note = ""
         pit_blocks = 0
+        # 默认：本模式的第 i 行就是面板的第 i 行。会删样本的模式需覆盖它。
+        row_index = np.arange(len(panel))
 
         if mode is LeakMode.ORACLE_LATENT:
             scores = np.array([r.latent for r in panel])
@@ -327,8 +455,12 @@ class LeakageAblation:
             pit_blocks = self._count_pit_blocks(panel, mode)
 
         elif mode is LeakMode.CHERRY_PICK:
-            scores, actual, kept = self._cherry_pick(panel, actual, baseline_scores)
-            note = f"按结果筛选样本，剔除表现最差的 {self.cherry_pick_quantile:.0%} 标的（幸存者偏差）；保留 {kept} 行"
+            scores, actual, keep = self._cherry_pick(panel, actual, baseline_scores)
+            row_index = keep
+            note = (
+                f"按结果筛选样本，剔除表现最差的 {self.cherry_pick_quantile:.0%} 标的"
+                f"（幸存者偏差）；保留 {len(keep)} 行"
+            )
 
         elif mode is LeakMode.TEST_SET_SELECT:
             scores, note = self._test_set_select(panel, actual)
@@ -338,7 +470,15 @@ class LeakageAblation:
             note = "严格时间点纪律，无泄漏（对照组）"
 
         metrics = evaluate(scores, actual)
-        return ModeResult(mode=mode, metrics=metrics, pit_blocks=pit_blocks, note=note)
+        return ModeResult(
+            mode=mode,
+            metrics=metrics,
+            pit_blocks=pit_blocks,
+            note=note,
+            scores=scores,
+            actual=actual,
+            row_index=row_index,
+        )
 
     # -------------------------------------------------------------------- 工具
     def _score(self, panel: list[PanelRow], *, leak: LeakMode) -> np.ndarray:
@@ -398,8 +538,13 @@ class LeakageAblation:
         panel: list[PanelRow],
         actual: np.ndarray,
         scores: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray, int]:
-        """按标的的累计收益淘汰最差的一批 —— 模拟幸存者偏差。"""
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """按标的的累计收益淘汰最差的一批 —— 模拟幸存者偏差。
+
+        Returns:
+            ``(保留的得分, 保留的实际收益, 保留行在面板中的下标)``。
+            返回下标是为了让 bootstrap 能把这些行正确归回决策日。
+        """
         by_asset: dict[str, list[int]] = {}
         for idx, row in enumerate(panel):
             by_asset.setdefault(row.asset, []).append(idx)
@@ -407,8 +552,8 @@ class LeakageAblation:
         totals = {a: float(actual[idxs].sum()) for a, idxs in by_asset.items()}
         cutoff = np.quantile(list(totals.values()), self.cherry_pick_quantile)
         survivors = {a for a, tot in totals.items() if tot > cutoff}
-        keep = np.array([i for i, row in enumerate(panel) if row.asset in survivors])
-        return scores[keep], actual[keep], int(len(keep))
+        keep = np.array([i for i, row in enumerate(panel) if row.asset in survivors], dtype=int)
+        return scores[keep], actual[keep], keep
 
     def _test_set_select(
         self, panel: list[PanelRow], actual: np.ndarray

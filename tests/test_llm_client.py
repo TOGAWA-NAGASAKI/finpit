@@ -47,7 +47,10 @@ def test_parse_falls_back_to_reasoning_when_content_empty():
 def test_parse_refuses_reasoning_when_truncated():
     """关键防线：被截断时思维链只是半截思考，绝不能当答案。"""
     result = LLMClient._parse(
-        _response(reasoning="我们需要回答用户：对12条财经新闻逐条打分。需要输出 JSON…", finish="length"),
+        _response(
+            reasoning="我们需要回答用户：对12条财经新闻逐条打分。需要输出 JSON…",
+            finish="length",
+        ),
         "m",
         0.1,
     )

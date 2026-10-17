@@ -23,6 +23,24 @@ def _parse_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def read_env_file(path: str | Path = DEFAULT_ENV_FILE) -> dict[str, str]:
+    """公开的 .env 读取入口。供不构造 Settings 的脚本使用。"""
+    return _parse_env_file(Path(path))
+
+
+def export_env_file(path: str | Path = DEFAULT_ENV_FILE, *, override: bool = False) -> int:
+    """把 .env 注入 ``os.environ``。
+
+    默认不覆盖已存在的环境变量（真实环境变量优先）。返回注入的条目数。
+    """
+    injected = 0
+    for key, value in read_env_file(path).items():
+        if override or key not in os.environ:
+            os.environ[key] = value
+            injected += 1
+    return injected
+
+
 @dataclass(slots=True)
 class Settings:
     """全部运行期设置。真实环境变量优先于 .env 文件。"""
