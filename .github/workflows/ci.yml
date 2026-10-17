@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 测试 (Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 跑测试
+        env:
+          # 测试全部离线，不需要任何真实凭据
+          PYTHONIOENCODING: utf-8
+        run: pytest -q --tb=short
+
+      - name: 复现核心结论（不需要 API key）
+        run: |
+          finpit demo --rows 3000 --bootstrap 300
+          finpit split-audit --demo --folds 5 --epochs 60
+
+      - name: 校验生成的可复现结果
+        run: |
+          python - <<'PY'
+          import json, pathlib, sys
+          demo = json.loads(pathlib.Path("results/demo.json").read_text(encoding="utf-8"))
+          rows = {r["mode"]: r for r in demo["results"]}
+          # 泄漏必须确实抬高 IC，否则说明消融失效
+          assert rows["pit_violation"]["ic"] > rows["clean"]["ic"], "未来函数未抬高 IC"
+          assert rows["outcome_prompt"]["ic"] > rows["clean"]["ic"], "结果泄漏未抬高 IC"
+          # 自检模式必须得 IC≈1
+          assert abs(rows["future_return"]["ic"] - 1.0) < 1e-6, "审计自检失败"
+          # 幸存者偏差应移动收益水平
+          assert rows["cherry_pick"]["mean_return"] != rows["clean"]["mean_return"]
+          print("核心结论校验通过:", {k: v["ic"] for k, v in rows.items()})
+          PY
+
+  lint:
+    name: 静态检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+      - name: ruff
+        run: ruff check src tests
