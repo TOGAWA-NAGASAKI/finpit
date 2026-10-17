@@ -1,11 +1,11 @@
 {
   "true_ic": 0.03559,
   "extractor": "lexicon-v1",
-  "n_panel_rows": 12000,
+  "n_panel_rows": 2000,
   "bootstrap_applied": true,
   "audit": {
     "store": "synthetic",
-    "total_accesses": 12000,
+    "total_accesses": 2000,
     "blocked_accesses": 0,
     "distinct_blocked_keys": 0,
     "clean": true,
@@ -17,102 +17,102 @@
       "note": "严格时间点纪律，无泄漏（对照组）",
       "pit_blocks": 0,
       "ci95": [
-        0.00692,
-        0.04398
+        -0.05565,
+        0.05721
       ],
-      "spans_zero": false,
+      "spans_zero": true,
       "inflation_ic": 0.0,
-      "ic": 0.02566,
-      "rank_ic": 0.03288,
-      "hit_rate": 0.52034,
-      "quantile_spread": 0.00069,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "ic": 0.00345,
+      "rank_ic": 0.00931,
+      "hit_rate": 0.51654,
+      "quantile_spread": -0.000409,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     },
     {
       "mode": "pit_violation",
       "note": "差一天的未来函数：用**目标日当天**的新闻预测当天收益。PIT 门控对每一行都会拦截",
-      "pit_blocks": 12000,
+      "pit_blocks": 2000,
       "ci95": [
-        0.10506,
-        0.13887
+        0.05456,
+        0.14012
       ],
       "spans_zero": false,
-      "inflation_ic": 3.7379,
-      "ic": 0.12155,
-      "rank_ic": 0.17069,
-      "hit_rate": 0.59145,
-      "quantile_spread": 0.007674,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "inflation_ic": 28.412,
+      "ic": 0.10145,
+      "rank_ic": 0.17104,
+      "hit_rate": 0.58049,
+      "quantile_spread": 0.007502,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     },
     {
       "mode": "outcome_prompt",
       "note": "提示词混入事后行情回顾（新闻 API 常见：文章被事后更新）",
-      "pit_blocks": 12000,
+      "pit_blocks": 2000,
       "ci95": [
-        0.19155,
-        0.2262
+        0.13623,
+        0.23255
       ],
       "spans_zero": false,
-      "inflation_ic": 7.1491,
-      "ic": 0.20907,
-      "rank_ic": 0.26564,
-      "hit_rate": 0.64779,
-      "quantile_spread": 0.013843,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "inflation_ic": 52.2673,
+      "ic": 0.18374,
+      "rank_ic": 0.24626,
+      "hit_rate": 0.63804,
+      "quantile_spread": 0.013616,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     },
     {
       "mode": "test_set_select",
-      "note": "在评测集上挑最优 scale=0.5（共试 8 组）；报出的是选择后的最大值，即乐观偏差",
+      "note": "在评测集上挑最优 scale=1.0（共试 8 组）；报出的是选择后的最大值，即乐观偏差",
       "pit_blocks": 0,
       "ci95": [
-        0.00853,
-        0.0455
+        -0.04928,
+        0.05265
       ],
-      "spans_zero": false,
-      "inflation_ic": 0.0376,
-      "ic": 0.02662,
-      "rank_ic": 0.03246,
-      "hit_rate": 0.52034,
-      "quantile_spread": 0.000555,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "spans_zero": true,
+      "inflation_ic": 0.9196,
+      "ic": 0.00662,
+      "rank_ic": 0.00998,
+      "hit_rate": 0.51654,
+      "quantile_spread": -0.000823,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     },
     {
       "mode": "cherry_pick",
-      "note": "按结果筛选样本，剔除表现最差的 20% 标的（幸存者偏差）；保留 9600 行",
+      "note": "按结果筛选样本，剔除表现最差的 20% 标的（幸存者偏差）；保留 1600 行",
       "pit_blocks": 0,
       "ci95": [
-        0.00602,
-        0.04616
+        -0.06111,
+        0.04968
       ],
-      "spans_zero": false,
-      "inflation_ic": 0.0353,
-      "ic": 0.02656,
-      "rank_ic": 0.03252,
-      "hit_rate": 0.51773,
-      "quantile_spread": 0.000797,
-      "mean_return": 0.000152,
-      "n_obs": 9600
+      "spans_zero": true,
+      "inflation_ic": -3.3621,
+      "ic": -0.00815,
+      "rank_ic": -0.00381,
+      "hit_rate": 0.50726,
+      "quantile_spread": -0.000791,
+      "mean_return": 0.000383,
+      "n_obs": 1600
     },
     {
       "mode": "oracle_latent",
       "note": "绕过文本抽取，直读潜在真值：信号族上限",
       "pit_blocks": 0,
       "ci95": [
-        0.02323,
-        0.05568
+        -0.01822,
+        0.06344
       ],
-      "spans_zero": false,
-      "inflation_ic": 0.5252,
-      "ic": 0.03913,
-      "rank_ic": 0.04664,
-      "hit_rate": 0.51656,
-      "quantile_spread": 0.001613,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "spans_zero": true,
+      "inflation_ic": 5.384,
+      "ic": 0.02202,
+      "rank_ic": 0.02829,
+      "hit_rate": 0.51122,
+      "quantile_spread": 0.000599,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     },
     {
       "mode": "future_return",
@@ -123,13 +123,13 @@
         1.0
       ],
       "spans_zero": false,
-      "inflation_ic": 37.9773,
+      "inflation_ic": 288.909,
       "ic": 1.0,
       "rank_ic": 1.0,
       "hit_rate": 1.0,
-      "quantile_spread": 0.037077,
-      "mean_return": -0.000189,
-      "n_obs": 12000
+      "quantile_spread": 0.038243,
+      "mean_return": -0.00021,
+      "n_obs": 2000
     }
   ]
 }

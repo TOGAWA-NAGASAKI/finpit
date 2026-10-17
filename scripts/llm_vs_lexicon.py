@@ -17,7 +17,7 @@ from finpit.data import SyntheticConfig, generate_corpus
 from finpit.eval import build_panel
 from finpit.eval.metrics import evaluate
 from finpit.llm import LLMClient
-from finpit.signals import LLMExtractor, LexiconExtractor
+from finpit.signals import LexiconExtractor, LLMExtractor
 
 ASSETS = 12
 ROWS = 1200

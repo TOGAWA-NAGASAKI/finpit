@@ -1,0 +1,114 @@
+{
+  "n_samples": 200,
+  "n_assets": 20,
+  "models": [
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+    "kimi-k3",
+    "mimo-v2.6-flash",
+    "longcat-2.5-preview-free"
+  ],
+  "true_beta_generator": 0.0005253218582374611,
+  "true_ic_generator": 0.01546,
+  "per_model": [
+    {
+      "model": "deepseek-v4.1-flash",
+      "beta_observed": -0.001151,
+      "se": 0.002593,
+      "corr_with_truth": 0.7316,
+      "parse_failures": 0
+    },
+    {
+      "model": "glm-5.3-flash",
+      "beta_observed": 0.000247,
+      "se": 0.003113,
+      "corr_with_truth": 0.6942,
+      "parse_failures": 0
+    },
+    {
+      "model": "kimi-k3",
+      "beta_observed": 0.000282,
+      "se": 0.002957,
+      "corr_with_truth": 0.7141,
+      "parse_failures": 0
+    },
+    {
+      "model": "mimo-v2.6-flash",
+      "beta_observed": -0.001059,
+      "se": 0.003116,
+      "corr_with_truth": 0.7255,
+      "parse_failures": 0
+    },
+    {
+      "model": "longcat-2.5-preview-free",
+      "beta_observed": -0.000219,
+      "se": 0.002718,
+      "corr_with_truth": 0.7097,
+      "parse_failures": 0
+    }
+  ],
+  "reliability": {
+    "k": 5,
+    "n": 200,
+    "lambda_single": 0.97158,
+    "lambda_mean": 0.99418,
+    "cronbach_alpha": 0.99282,
+    "noise_share": 0.02842,
+    "r_min": 0.95799,
+    "r_max": 0.98524,
+    "ci95_lambda_mean": [
+      0.99164,
+      0.99626
+    ]
+  },
+  "true_reliability": {
+    "lambda_single": 0.53525,
+    "lambda_mean": 0.5237
+  },
+  "agreement_vs_validity": {
+    "cross_model_r": 0.97158,
+    "mean_construct_r": 0.71502,
+    "gap": 0.25656,
+    "lambda_hat_overstates_true_by": 0.8152,
+    "ensemble_gain_in_construct_r": -0.00793
+  },
+  "regression_power_note": "真实 IC 仅 0.0155，n=200 时功效不足；回归倍数不可作结论，可靠性与效度分解有效。",
+  "independence_check": {
+    "mean_error_corr": 0.9788,
+    "lambda_implied_by_error_var": 0.66102,
+    "mean_error_var": 0.46062,
+    "var_theta": 0.8982,
+    "independence_assumption_ok": false
+  },
+  "attenuation": {
+    "n": 200,
+    "k": 5,
+    "lambda_single": 0.97158,
+    "lambda_mean": 0.99418,
+    "beta_observed": -0.000429,
+    "beta_corrected": -0.000431,
+    "beta_true": 0.000525,
+    "se_observed": 0.002917,
+    "se_corrected": 0.003078,
+    "inflation": 1.0058,
+    "ci95_observed": [
+      -0.006249,
+      0.006238
+    ],
+    "ci95_corrected": [
+      -0.006276,
+      0.006269
+    ]
+  },
+  "comparison": {
+    "one_model_beta": -0.001151,
+    "k_model_beta": -0.000429,
+    "corrected_beta": -0.000431,
+    "true_beta": 0.000525
+  },
+  "llm_stats": {
+    "calls_made": 0,
+    "calls_cached": 85,
+    "tokens_used": 0
+  }
+}

@@ -1,0 +1,205 @@
+{
+  "attenuation_by_lambda": [
+    {
+      "lambda": 0.3,
+      "beta_observed": 0.032271,
+      "beta_corrected": 0.107571,
+      "rel_error_observed": 0.6773,
+      "rel_error_corrected": 0.0757
+    },
+    {
+      "lambda": 0.4,
+      "beta_observed": 0.042488,
+      "beta_corrected": 0.106219,
+      "rel_error_observed": 0.5751,
+      "rel_error_corrected": 0.0622
+    },
+    {
+      "lambda": 0.52,
+      "beta_observed": 0.054593,
+      "beta_corrected": 0.104986,
+      "rel_error_observed": 0.4541,
+      "rel_error_corrected": 0.0499
+    },
+    {
+      "lambda": 0.65,
+      "beta_observed": 0.06752,
+      "beta_corrected": 0.103878,
+      "rel_error_observed": 0.3248,
+      "rel_error_corrected": 0.0388
+    },
+    {
+      "lambda": 0.8,
+      "beta_observed": 0.082157,
+      "beta_corrected": 0.102697,
+      "rel_error_observed": 0.1784,
+      "rel_error_corrected": 0.027
+    },
+    {
+      "lambda": 0.95,
+      "beta_observed": 0.09627,
+      "beta_corrected": 0.101337,
+      "rel_error_observed": 0.0373,
+      "rel_error_corrected": 0.0134
+    }
+  ],
+  "lambda_by_k": [
+    {
+      "k": 1,
+      "lambda_k": 0.52
+    },
+    {
+      "k": 2,
+      "lambda_k": 0.68421
+    },
+    {
+      "k": 3,
+      "lambda_k": 0.76471
+    },
+    {
+      "k": 5,
+      "lambda_k": 0.84416
+    },
+    {
+      "k": 8,
+      "lambda_k": 0.89655
+    },
+    {
+      "k": 10,
+      "lambda_k": 0.91549
+    },
+    {
+      "k": 20,
+      "lambda_k": 0.95588
+    },
+    {
+      "k": 50,
+      "lambda_k": 0.98187
+    }
+  ],
+  "models_needed_for_090": 9,
+  "sign_flip_examples": [
+    {
+      "rho": 0.8,
+      "error_var": 1.5,
+      "names": [
+        "llm_sentiment",
+        "traditional"
+      ],
+      "beta_true": [
+        0.1,
+        0.05
+      ],
+      "beta_plim": [
+        0.01935,
+        0.11452
+      ],
+      "flipped": [],
+      "attenuation_ratio": {
+        "llm_sentiment": 0.19355,
+        "traditional": 2.29032
+      }
+    },
+    {
+      "rho": 0.8,
+      "error_var": 0.6,
+      "names": [
+        "llm_sentiment",
+        "traditional"
+      ],
+      "beta_true": [
+        0.1,
+        0.05
+      ],
+      "beta_plim": [
+        0.0375,
+        0.1
+      ],
+      "flipped": [],
+      "attenuation_ratio": {
+        "llm_sentiment": 0.375,
+        "traditional": 2.0
+      }
+    },
+    {
+      "rho": -0.7,
+      "error_var": 1.5,
+      "names": [
+        "llm_sentiment",
+        "traditional"
+      ],
+      "beta_true": [
+        0.1,
+        0.05
+      ],
+      "beta_plim": [
+        0.02537,
+        -0.00224
+      ],
+      "flipped": [
+        "traditional"
+      ],
+      "attenuation_ratio": {
+        "llm_sentiment": 0.25373,
+        "traditional": -0.04478
+      }
+    }
+  ],
+  "shared_bias": [
+    {
+      "k": 2,
+      "lambda_hat_single": 0.7497,
+      "lambda_hat_mean": 0.857,
+      "lambda_true_mean": 0.5714,
+      "overstatement": 0.4997
+    },
+    {
+      "k": 3,
+      "lambda_hat_single": 0.7519,
+      "lambda_hat_mean": 0.9009,
+      "lambda_true_mean": 0.6,
+      "overstatement": 0.5015
+    },
+    {
+      "k": 5,
+      "lambda_hat_single": 0.7507,
+      "lambda_hat_mean": 0.9377,
+      "lambda_true_mean": 0.625,
+      "overstatement": 0.5004
+    },
+    {
+      "k": 10,
+      "lambda_hat_single": 0.7499,
+      "lambda_hat_mean": 0.9677,
+      "lambda_true_mean": 0.6452,
+      "overstatement": 0.5
+    },
+    {
+      "k": 50,
+      "lambda_hat_single": 0.7483,
+      "lambda_hat_mean": 0.9933,
+      "lambda_true_mean": 0.6623,
+      "overstatement": 0.4999
+    },
+    {
+      "k": 200,
+      "lambda_hat_single": 0.7484,
+      "lambda_hat_mean": 0.9983,
+      "lambda_true_mean": 0.6656,
+      "overstatement": 0.5
+    }
+  ],
+  "shared_bias_correction": {
+    "beta_observed": 0.065334,
+    "beta_corrected_with_estimated_lambda": 0.067515,
+    "beta_corrected_with_true_lambda": 0.101268,
+    "beta_true": 0.1
+  },
+  "error_correlation_diagnostic": {
+    "mean_error_corr": 0.50183,
+    "lambda_implied_by_error_var": 0.49706,
+    "mean_error_var": 1.00848,
+    "var_theta": 0.99669,
+    "independence_assumption_ok": false
+  }
+}

@@ -14,7 +14,7 @@ import argparse
 import json
 import pathlib
 import sys
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
@@ -85,7 +85,10 @@ def main() -> int:
         if i % 15 == 0 or i == len(picks):
             print(f"  [{i:3}/{len(picks)}] 累计 10-K/10-Q {len(all_filings)} 条")
 
-    print(f"\n网络请求 {client.network_calls} 次，缓存命中 {client.cache_hits} 次，失败 {failed} 家")
+    print(
+        f"\n网络请求 {client.network_calls} 次，缓存命中 {client.cache_hits} 次，"
+        f"失败 {failed} 家"
+    )
     if not all_filings:
         print("没有取到任何申报", file=sys.stderr)
         return 1
@@ -146,7 +149,14 @@ def main() -> int:
                 # 朴素管线以为这期可用，其实还没公开
                 n_leak += 1
         rate = n_leak / n_comp if n_comp else 0.0
-        leak_rates.append({"ts": ts.isoformat(), "companies": n_comp, "using_unpublished": n_leak, "rate": round(rate, 4)})
+        leak_rates.append(
+            {
+                "ts": ts.isoformat(),
+                "companies": n_comp,
+                "using_unpublished": n_leak,
+                "rate": round(rate, 4),
+            }
+        )
         print(f"{ts:%Y-%m-%d %H:%M}{n_comp:>12}{n_leak:>12}{rate:>9.1%}")
 
     if leak_rates:
