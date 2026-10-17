@@ -1,0 +1,201 @@
+{
+  "data_source": "SEC EDGAR 10-K/10-Q 叙述句（真实文本）",
+  "construct_set": "orthogonal4",
+  "n_sentences": 160,
+  "n_companies": 11,
+  "companies": [
+    "AGNC Investment Corp.",
+    "Aclarion, Inc.",
+    "Amerant Bancorp Inc.",
+    "Ares Commercial Real Estate Corp",
+    "CEDAR REALTY TRUST, INC.",
+    "DECKERS OUTDOOR CORP",
+    "INTELLINETICS, INC.",
+    "TARGET CORP",
+    "Tango Therapeutics, Inc.",
+    "W&T OFFSHORE INC",
+    "WEBTOON Entertainment Inc."
+  ],
+  "models": [
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+    "kimi-k3",
+    "mimo-v2.6-flash"
+  ],
+  "constructs": [
+    "sentiment",
+    "litigious",
+    "constraining",
+    "forward_looking"
+  ],
+  "per_model_means": [
+    {
+      "model": "deepseek-v4.1-flash",
+      "means": {
+        "sentiment": 0.0922,
+        "litigious": 0.1375,
+        "constraining": 0.1034,
+        "forward_looking": 0.2138
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "glm-5.3-flash",
+      "means": {
+        "sentiment": -0.0006,
+        "litigious": 0.1313,
+        "constraining": 0.0706,
+        "forward_looking": 0.1938
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "kimi-k3",
+      "means": {
+        "sentiment": 0.4941,
+        "litigious": 0.2181,
+        "constraining": 0.1694,
+        "forward_looking": 0.3416
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "mimo-v2.6-flash",
+      "means": {
+        "sentiment": 0.1675,
+        "litigious": 0.1337,
+        "constraining": 0.1509,
+        "forward_looking": 0.2713
+      },
+      "parse_failures": 0
+    }
+  ],
+  "mtmm": {
+    "n_texts": 160,
+    "n_constructs": 4,
+    "n_methods": 4,
+    "constructs": [
+      "sentiment",
+      "litigious",
+      "constraining",
+      "forward_looking"
+    ],
+    "methods": [
+      "deepseek-v4.1-flash",
+      "glm-5.3-flash",
+      "kimi-k3",
+      "mimo-v2.6-flash"
+    ],
+    "mthm_convergent": 0.80523,
+    "htmm_method_inflated": 0.08393,
+    "hthm_baseline": 0.06622,
+    "trait_excess": 0.739,
+    "method_excess": 0.0177,
+    "trait_share": 0.97661,
+    "criteria": {
+      "convergent": true,
+      "discriminant": true,
+      "trait_over_method": true
+    },
+    "verdict": "构念方差占优 —— 分数主要反映文本内容",
+    "mthm_min": 0.49252,
+    "mthm_max": 0.95261,
+    "htmm_max": 0.66527,
+    "pairs": [
+      {
+        "c1": "sentiment",
+        "c2": "litigious",
+        "htmm_same_method": -0.09919,
+        "hthm_diff_method": -0.12098,
+        "method_excess": 0.0218,
+        "confounded": false
+      },
+      {
+        "c1": "sentiment",
+        "c2": "constraining",
+        "htmm_same_method": -0.06337,
+        "hthm_diff_method": -0.07123,
+        "method_excess": 0.00785,
+        "confounded": false
+      },
+      {
+        "c1": "sentiment",
+        "c2": "forward_looking",
+        "htmm_same_method": -0.16753,
+        "hthm_diff_method": -0.17917,
+        "method_excess": 0.01164,
+        "confounded": false
+      },
+      {
+        "c1": "litigious",
+        "c2": "constraining",
+        "htmm_same_method": 0.56644,
+        "hthm_diff_method": 0.53554,
+        "method_excess": 0.03091,
+        "confounded": false
+      },
+      {
+        "c1": "litigious",
+        "c2": "forward_looking",
+        "htmm_same_method": 0.15356,
+        "hthm_diff_method": 0.13899,
+        "method_excess": 0.01457,
+        "confounded": false
+      },
+      {
+        "c1": "constraining",
+        "c2": "forward_looking",
+        "htmm_same_method": 0.11364,
+        "hthm_diff_method": 0.0942,
+        "method_excess": 0.01944,
+        "confounded": false
+      }
+    ],
+    "confounded_pairs": []
+  },
+  "cross_construct_within_model": {
+    "deepseek-v4.1-flash": 0.07958,
+    "glm-5.3-flash": -0.01021,
+    "kimi-k3": 0.07744,
+    "mimo-v2.6-flash": 0.18889
+  },
+  "per_pair_within_model": {
+    "deepseek-v4.1-flash": {
+      "sentiment↔litigious": -0.02242,
+      "sentiment↔constraining": -0.05111,
+      "sentiment↔forward_looking": -0.18694,
+      "litigious↔constraining": 0.52999,
+      "litigious↔forward_looking": 0.12737,
+      "constraining↔forward_looking": 0.0806
+    },
+    "glm-5.3-flash": {
+      "sentiment↔litigious": -0.16092,
+      "sentiment↔constraining": -0.12609,
+      "sentiment↔forward_looking": -0.2871,
+      "litigious↔constraining": 0.42675,
+      "litigious↔forward_looking": 0.08731,
+      "constraining↔forward_looking": -0.00118
+    },
+    "kimi-k3": {
+      "sentiment↔litigious": -0.16001,
+      "sentiment↔constraining": -0.12439,
+      "sentiment↔forward_looking": -0.28746,
+      "litigious↔constraining": 0.66527,
+      "litigious↔forward_looking": 0.1927,
+      "constraining↔forward_looking": 0.17852
+    },
+    "mimo-v2.6-flash": {
+      "sentiment↔litigious": -0.05339,
+      "sentiment↔constraining": 0.04809,
+      "sentiment↔forward_looking": 0.09136,
+      "litigious↔constraining": 0.64376,
+      "litigious↔forward_looking": 0.20689,
+      "constraining↔forward_looking": 0.19664
+    }
+  },
+  "llm_stats": {
+    "calls_made": 108,
+    "calls_cached": 0,
+    "tokens_used": 239854
+  }
+}

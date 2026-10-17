@@ -51,7 +51,7 @@ class ConstructSpec:
         )
 
 
-# Loughran-McDonald 风格的三个维度
+# Loughran-McDonald 风格的三个维度（首轮使用）
 FINANCIAL_CONSTRUCTS: list[ConstructSpec] = [
     ConstructSpec(
         name="sentiment",
@@ -72,6 +72,49 @@ FINANCIAL_CONSTRUCTS: list[ConstructSpec] = [
         high_anchor="1 表示纯粹前瞻未来",
     ),
 ]
+
+# 正交构念集（第二轮使用）。
+#
+# 首轮实测 uncertainty ↔ forward_looking = +0.805（**异方法**，即真实构念相关）——
+# 因为**含糊的表述往往就是前瞻性的**。这不是方法假象，而是构念设计缺陷：
+# 两个语义天然重叠的维度，无法构成有意义的判别效度检验。
+#
+# 这一集刻意沿四个**不同的语义轴**选取，使其概念上互相独立：
+#   * sentiment       —— 评价轴（好坏）
+#   * litigious       —— 领域轴（是否在讲法律/监管事项）
+#   * constraining    —— 模态轴（是否在施加义务或限制）
+#   * forward_looking —— 时间轴（前瞻 vs 回顾），保留以便与首轮对照
+ORTHOGONAL_CONSTRUCTS: list[ConstructSpec] = [
+    ConstructSpec(
+        name="sentiment",
+        description="这段陈述对该公司前景的正面/负面倾向（评价轴）",
+        low_anchor="-1 表示强烈负面",
+        high_anchor="+1 表示强烈正面",
+    ),
+    ConstructSpec(
+        name="litigious",
+        description="这段陈述涉及法律、诉讼、监管、合规事项的程度（领域轴）",
+        low_anchor="0 表示与法律监管完全无关",
+        high_anchor="1 表示整句都在讲法律诉讼或监管事项",
+    ),
+    ConstructSpec(
+        name="constraining",
+        description="这段陈述对该公司施加义务、限制、承诺或契约约束的程度（模态轴）",
+        low_anchor="0 表示不含任何义务或限制",
+        high_anchor="1 表示整句都是强制性义务或限制条款",
+    ),
+    ConstructSpec(
+        name="forward_looking",
+        description="这段陈述是在讨论未来还是在回顾过去（时间轴）",
+        low_anchor="0 表示纯粹回顾历史",
+        high_anchor="1 表示纯粹前瞻未来",
+    ),
+]
+
+CONSTRUCT_SETS: dict[str, list[ConstructSpec]] = {
+    "lm3": FINANCIAL_CONSTRUCTS,
+    "orthogonal4": ORTHOGONAL_CONSTRUCTS,
+}
 
 _SYSTEM = (
     "你是一名严谨的金融文本分析师。你会收到若干段来自上市公司定期报告"
@@ -195,7 +238,9 @@ class MultiConstructExtractor:
 
 
 __all__ = [
+    "CONSTRUCT_SETS",
     "FINANCIAL_CONSTRUCTS",
+    "ORTHOGONAL_CONSTRUCTS",
     "ConstructSpec",
     "MultiConstructExtractor",
 ]

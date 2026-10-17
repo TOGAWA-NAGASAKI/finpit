@@ -29,6 +29,7 @@ import argparse
 import json
 import pathlib
 import sys
+from itertools import combinations
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
@@ -39,7 +40,7 @@ from finpit.data.edgar import TICKER_MAP_URL  # noqa: E402
 from finpit.data.edgar_text import EdgarTextClient  # noqa: E402
 from finpit.eiv import mtmm_analyze  # noqa: E402
 from finpit.llm import LLMClient  # noqa: E402
-from finpit.signals import MultiConstructExtractor  # noqa: E402
+from finpit.signals import CONSTRUCT_SETS, MultiConstructExtractor  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CACHE = ROOT / ".cache"
@@ -80,7 +81,14 @@ def main() -> int:
     ap.add_argument("--per-filing", type=int, default=30)
     ap.add_argument("--batch-size", type=int, default=6)
     ap.add_argument("--models", nargs="*", default=DEFAULT_MODELS)
+    ap.add_argument(
+        "--construct-set",
+        choices=sorted(CONSTRUCT_SETS),
+        default="orthogonal4",
+        help="构念集：orthogonal4（默认，四个正交语义轴）或 lm3（首轮的三维）",
+    )
     args = ap.parse_args()
+    constructs = CONSTRUCT_SETS[args.construct_set]
 
     # ---------------------------------------------------------- 抓真实文本
     universe = load_universe()
@@ -132,16 +140,17 @@ def main() -> int:
     client = LLMClient(settings)
 
     k = len(args.models)
-    construct_names = [c.name for c in MultiConstructExtractor(client=client).constructs]
+    construct_names = [c.name for c in constructs]
     c = len(construct_names)
     cube = np.zeros((len(texts), c, k))
     per_model: list[dict] = []
 
-    print(f"\n打分：{c} 个构念 × {k} 个模型 = {c * k} 条变量，"
-          f"共 {len(texts)} 句\n")
+    print(f"\n构念集 = {args.construct_set}（{c} 个）：{', '.join(construct_names)}")
+    print(f"打分：{c} 个构念 × {k} 个模型 = {c * k} 条变量，共 {len(texts)} 句\n")
     for j, model in enumerate(args.models):
         ex = MultiConstructExtractor(
             client=client,
+            constructs=constructs,
             batch_size=args.batch_size,
             model=model,
             max_tokens=8192,
@@ -169,21 +178,29 @@ def main() -> int:
     print(result.summary())
 
     # 补充：各模型跨构念的平均相关（方法方差的直接读数）
-    print("\n  逐模型：该模型在三个构念上的打分两两相关（方法方差直接读数）")
+    print(f"\n  逐模型：该模型在 {c} 个构念上的打分两两相关（方法方差直接读数）")
     for j, model in enumerate(args.models):
         cc = np.corrcoef(cube[:, :, j], rowvar=False)
         off = cc[np.triu_indices(c, 1)]
-        print(f"    {model:26} 平均跨构念相关 = {off.mean():+.4f}   {np.round(off, 3)}")
+        print(f"    {model:26} 平均跨构念相关 = {off.mean():+.4f}")
+        # 逐配对列出，避免均值掩盖结构（这正是首轮踩过的坑）
+        for a, b in combinations(range(c), 2):
+            flag = "  ← 高" if abs(cc[a, b]) > 0.6 else ""
+            print(
+                f"        {construct_names[a]:14} ↔ {construct_names[b]:14}"
+                f" {cc[a, b]:+.3f}{flag}"
+            )
 
     print(f"\nLLM 用量: {client.stats()}")
 
     # ------------------------------------------------------------------ 落盘
-    out = ROOT / "results" / "mtmm_real_text.json"
+    out = ROOT / "results" / f"mtmm_real_text_{args.construct_set}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(
         json.dumps(
             {
                 "data_source": "SEC EDGAR 10-K/10-Q 叙述句（真实文本）",
+                "construct_set": args.construct_set,
                 "n_sentences": len(texts),
                 "n_companies": len(entities),
                 "companies": sorted(entities),
@@ -197,6 +214,15 @@ def main() -> int:
                     ), 5)
                     for j, model in enumerate(args.models)
                 },
+                "per_pair_within_model": {
+                    model: {
+                        f"{construct_names[a]}↔{construct_names[b]}": round(
+                            float(np.corrcoef(cube[:, :, j], rowvar=False)[a, b]), 5
+                        )
+                        for a, b in combinations(range(c), 2)
+                    }
+                    for j, model in enumerate(args.models)
+                },
                 "llm_stats": client.stats(),
             },
             ensure_ascii=False,
@@ -207,7 +233,7 @@ def main() -> int:
     print(f"\n已写出: {out}")
 
     # 原始打分一并落盘，便于日后换分析口径而无需重新调用 LLM
-    raw_out = ROOT / "results" / "mtmm_raw_scores.json"
+    raw_out = ROOT / "results" / f"mtmm_raw_scores_{args.construct_set}.json"
     raw_out.write_text(
         json.dumps(
             {
