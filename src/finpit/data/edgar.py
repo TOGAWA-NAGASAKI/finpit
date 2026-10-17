@@ -118,11 +118,15 @@ class Filing:
         }
 
 
-def _parse_acceptance(raw: str) -> datetime:
+def parse_acceptance(raw: str) -> datetime:
     """解析 ``2026-10-16T02:30:17.000Z`` 这类时刻。"""
     cleaned = raw.strip().replace("Z", "+00:00")
     dt = datetime.fromisoformat(cleaned)
     return dt.astimezone(UTC)
+
+
+# 向后兼容的私有别名
+_parse_acceptance = parse_acceptance
 
 
 def _parse_date(raw: str) -> date | None:
@@ -365,5 +369,6 @@ __all__ = [
     "default_user_agent",
     "filing_key",
     "filing_lag_report",
+    "parse_acceptance",
     "to_pit_records",
 ]

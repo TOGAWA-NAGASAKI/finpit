@@ -1,0 +1,136 @@
+{
+  "data_source": "SEC EDGAR 10-K/10-Q 叙述句（真实文本）",
+  "n_sentences": 160,
+  "n_companies": 11,
+  "companies": [
+    "AGNC Investment Corp.",
+    "Aclarion, Inc.",
+    "Amerant Bancorp Inc.",
+    "Ares Commercial Real Estate Corp",
+    "CEDAR REALTY TRUST, INC.",
+    "DECKERS OUTDOOR CORP",
+    "INTELLINETICS, INC.",
+    "TARGET CORP",
+    "Tango Therapeutics, Inc.",
+    "W&T OFFSHORE INC",
+    "WEBTOON Entertainment Inc."
+  ],
+  "models": [
+    "deepseek-v4.1-flash",
+    "glm-5.3-flash",
+    "kimi-k3",
+    "mimo-v2.6-flash"
+  ],
+  "constructs": [
+    "sentiment",
+    "uncertainty",
+    "forward_looking"
+  ],
+  "per_model_means": [
+    {
+      "model": "deepseek-v4.1-flash",
+      "means": {
+        "sentiment": 0.0569,
+        "uncertainty": 0.1888,
+        "forward_looking": 0.2128
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "glm-5.3-flash",
+      "means": {
+        "sentiment": 0.0725,
+        "uncertainty": 0.175,
+        "forward_looking": 0.1856
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "kimi-k3",
+      "means": {
+        "sentiment": 0.4947,
+        "uncertainty": 0.2316,
+        "forward_looking": 0.27
+      },
+      "parse_failures": 0
+    },
+    {
+      "model": "mimo-v2.6-flash",
+      "means": {
+        "sentiment": 0.1966,
+        "uncertainty": 0.2466,
+        "forward_looking": 0.2597
+      },
+      "parse_failures": 0
+    }
+  ],
+  "mtmm": {
+    "n_texts": 160,
+    "n_constructs": 3,
+    "n_methods": 4,
+    "constructs": [
+      "sentiment",
+      "uncertainty",
+      "forward_looking"
+    ],
+    "methods": [
+      "deepseek-v4.1-flash",
+      "glm-5.3-flash",
+      "kimi-k3",
+      "mimo-v2.6-flash"
+    ],
+    "mthm_convergent": 0.79764,
+    "htmm_method_inflated": 0.09024,
+    "hthm_baseline": 0.07545,
+    "trait_excess": 0.72219,
+    "method_excess": 0.01479,
+    "trait_share": 0.97993,
+    "criteria": {
+      "convergent": true,
+      "discriminant": true,
+      "trait_over_method": true
+    },
+    "verdict": "构念方差占优 —— 分数主要反映文本内容",
+    "mthm_min": 0.41356,
+    "mthm_max": 0.93115,
+    "htmm_max": 0.8883,
+    "pairs": [
+      {
+        "c1": "sentiment",
+        "c2": "uncertainty",
+        "htmm_same_method": -0.32773,
+        "hthm_diff_method": -0.32089,
+        "method_excess": -0.00684,
+        "confounded": false
+      },
+      {
+        "c1": "sentiment",
+        "c2": "forward_looking",
+        "htmm_same_method": -0.23596,
+        "hthm_diff_method": -0.25792,
+        "method_excess": 0.02195,
+        "confounded": false
+      },
+      {
+        "c1": "uncertainty",
+        "c2": "forward_looking",
+        "htmm_same_method": 0.83441,
+        "hthm_diff_method": 0.80516,
+        "method_excess": 0.02925,
+        "confounded": false
+      }
+    ],
+    "confounded_pairs": []
+  },
+  "cross_construct_within_model": {
+    "deepseek-v4.1-flash": 0.04943,
+    "glm-5.3-flash": 0.06872,
+    "kimi-k3": 0.04716,
+    "mimo-v2.6-flash": 0.19566
+  },
+  "llm_stats": {
+    "calls_made": 0,
+    "calls_cached": 108,
+    "tokens_used": 0
+  }
+}

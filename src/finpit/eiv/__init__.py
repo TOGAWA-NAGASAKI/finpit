@@ -42,6 +42,7 @@ from finpit.eiv.attenuation import (
     plim_coefficients,
     sign_flip_report,
 )
+from finpit.eiv.mtmm import MTMMResult, PairDiagnostic, mtmm_analyze
 from finpit.eiv.reliability import (
     ReliabilityEstimate,
     cronbach_alpha,
@@ -53,6 +54,8 @@ from finpit.eiv.reliability import (
 
 __all__ = [
     "AttenuationResult",
+    "MTMMResult",
+    "PairDiagnostic",
     "ReliabilityEstimate",
     "SignFlipReport",
     "corrected_regression",
@@ -62,6 +65,7 @@ __all__ = [
     "error_correlation",
     "estimate_reliability",
     "mean_pairwise_correlation",
+    "mtmm_analyze",
     "plim_coefficients",
     "sign_flip_report",
     "spearman_brown",
